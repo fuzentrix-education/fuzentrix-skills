@@ -1,0 +1,4 @@
+interface:
+  display_name: "Fuzentrix Script"
+  short_description: "Script Review and Master Script for a Video"
+  default_prompt: "Use $fz-script to review this Instructor Script and build its Master Script."

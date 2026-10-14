@@ -1,0 +1,15 @@
+{
+  "name": "fuzentrix",
+  "owner": {
+    "name": "Fuzentrix"
+  },
+  "description": "Fuzentrix content skills.",
+  "plugins": [
+    {
+      "name": "fuzentrix-skills",
+      "source": "./",
+      "description": "Fuzentrix content skills: Script Review and Master Script, slides, visuals, teleprompter, LMS quizzes, cheatsheets and coding-problem HTML, for B.Tech video courses.",
+      "category": "education"
+    }
+  ]
+}

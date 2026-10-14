@@ -1,0 +1,21 @@
+# Fuzentrix glossary
+
+- **Instructor Script**: the Instructor's own free-flow draft for a Video, usually Telugu-English.
+- **Video Bundle**: the folder (zipped for download) holding all work for one Video. Upload it to continue.
+- **Configuration Pack**: the published Fuzentrix settings (video guidelines, teleprompter formatting); a DRAFT bundle uses skill defaults instead.
+- **Chunk**: a run of consecutive script lines handled in one turn (C01…). Master Script Chunks (M01…) group whole Segments.
+- **Line Role**: the purpose of a line: spoken, heading, speaker_label, stage_direction, note_to_team, slide_only, duplicate.
+- **Finding**: one problem found by Script Review, quoting its line, with a severity and a suggested fix.
+- **Gate**: a person's approval before work continues. Gate 1: the Instructor decides on Findings. Gate 2: the Content Lead approves the Master Script, making it Final.
+- **Master Script**: the complete plan for the finished Video: what is said, what is on screen, every Visual Event.
+- **Segment**: a stretch of spoken lines within one Video Section that shares one Slide (S01…).
+- **Video Section**: hook, intro, recap, agenda, explanation, summary, teaser (optional fun fact), outro.
+- **Visual Event**: something shown or done beyond the Slide: animation, diagram, image, code reveal, B-roll, or a direction (camera, music or sound cue).
+- **Trigger Phrase** (`trigger`): the exact spoken words at which a Visual Event starts.
+- **Teleprompter Script**: only the words the Instructor speaks, unchanged from the Final Master Script.
+- **Points to check**: anything the self-check could not resolve, shown first to the person at the Gate.
+- **Topic**: a group of related Videos; a Quiz or Cheatsheet covers one Topic.
+- **Topic Bundle**: like a Video Bundle, but holding the Final Master Scripts of the Topic's Videos, plus its Quiz and Cheatsheet.
+- **Quiz Request**: the user's quiz choices (count, mix, points…), with Fuzentrix defaults for the rest.
+- **LMS Quiz Template**: the Excel layout and import rules the LMS accepts (one bad row rejects the whole file).
+- **Gate 3**: the Content Lead approves the Quiz (or the Cheatsheet).

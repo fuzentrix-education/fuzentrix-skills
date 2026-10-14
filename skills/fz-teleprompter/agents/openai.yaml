@@ -1,0 +1,4 @@
+interface:
+  display_name: "Fuzentrix Teleprompter"
+  short_description: "The Instructor's words only, ready for the teleprompter"
+  default_prompt: "Use $fz-teleprompter to make the teleprompter script for this Video Bundle."

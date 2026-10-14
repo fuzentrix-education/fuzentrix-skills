@@ -1,0 +1,4 @@
+interface:
+  display_name: "Fuzentrix Visuals"
+  short_description: "Images, diagrams and storyboards for a Video's Editor Pack"
+  default_prompt: "Use $fz-visuals to create the images and diagrams for this Video Bundle."

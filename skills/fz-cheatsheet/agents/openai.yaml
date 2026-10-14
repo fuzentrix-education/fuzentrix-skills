@@ -1,0 +1,4 @@
+interface:
+  display_name: "Fuzentrix Cheatsheet"
+  short_description: "Build LMS-ready revision cheatsheets"
+  default_prompt: "Use $fz-cheatsheet to create a Fuzentrix Cheatsheet for this Topic."

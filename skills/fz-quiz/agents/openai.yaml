@@ -1,0 +1,4 @@
+interface:
+  display_name: "Fuzentrix Quiz"
+  short_description: "Build and revise validated LMS quizzes"
+  default_prompt: "Use $fz-quiz to create a Fuzentrix Quiz from this Topic Bundle."

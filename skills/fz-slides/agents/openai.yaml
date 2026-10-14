@@ -1,0 +1,4 @@
+interface:
+  display_name: "Fuzentrix Slides"
+  short_description: "Editable PowerPoint slides from the Final Master Script"
+  default_prompt: "Use $fz-slides to build the slides for this Video Bundle."
