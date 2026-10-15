@@ -1,4 +1,4 @@
-"""Command-line interface. The fz-video skill tells the Host App which command to run; end users never type these."""
+"""Command-line interface. Each fz-* skill tells the Host App which command to run; end users never type these."""
 from __future__ import annotations
 
 import argparse

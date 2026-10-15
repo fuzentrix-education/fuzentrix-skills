@@ -4,13 +4,13 @@ AI skills that turn an Instructor Script into everything a Fuzentrix course vide
 
 | Skill | Use it to… |
 |---|---|
-| `fz-script` | Review an Instructor Script, build its Master Script (narration, slide plan, Visual Events), edit it, and get it approved |
+| `fz-master-script` | Review an Instructor Script, build its Master Script (narration, slide plan, Visual Events), edit it, and get it approved |
 | `fz-slides` | Build the Video's editable PowerPoint slides |
 | `fz-visuals` | Make the Video's images, code-drawn diagrams and storyboards |
 | `fz-teleprompter` | Make the Instructor's teleprompter script |
 | `fz-quiz` | Build an LMS quiz for a Topic (Excel + RICH_HTML), or convert an existing quiz workbook |
 | `fz-cheatsheet` | Build an interactive LMS cheatsheet for a Topic |
-| `fz-lms-html` | Write LMS HTML for a coding problem |
+| `fz-coding-problem` | Write LMS HTML for a coding problem |
 
 Every skill is self-contained: its instructions plus the tested Python builders it runs (`scripts/fz.py`). No API keys or servers are needed.
 
@@ -49,7 +49,7 @@ Menu names change between app versions. If a step looks different, note what you
 
 ## Use
 
-1. **Script.** Attach an Instructor Script (`.pdf`, `.docx`, `.md`, `.txt`) and the Fuzentrix Configuration Pack zip, then say: *"Use Fuzentrix Script on this Instructor Script. Video ID dbms-p2-t1-v1."*
+1. **Script.** Attach an Instructor Script (`.pdf`, `.docx`, `.md`, `.txt`) and the Fuzentrix Configuration Pack zip, then say: *"Use Fuzentrix Master Script on this Instructor Script. Video ID dbms-p2-t1-v1."*
 2. **Production.** When the Master Script is approved, use Fuzentrix **Slides**, **Visuals** and **Teleprompter**, in the same chat or a new one with the Video Bundle zip.
 3. **Topic.** Use Fuzentrix **Quiz** and **Cheatsheet** with the Video Bundle zips of the Topic's Videos.
 

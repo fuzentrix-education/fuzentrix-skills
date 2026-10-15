@@ -8,10 +8,10 @@ def next_step(bundle) -> tuple:
     """Return (the first unfinished skill, one status line per skill)."""
     if bundle.manifest.get("kind") == "topic":
         return topic_next_step(bundle)
-    lines = [("fz-script", _script_step(bundle))]
+    lines = [("fz-master-script", _script_step(bundle))]
     final = bundle.manifest["stages"].get("master", {}).get("status") == "final"
     for skill, step in (("fz-slides", _slides_step), ("fz-visuals", _visuals_step), ("fz-teleprompter", _teleprompter_step)):
-        lines.append((skill, step(bundle) if final else "Waiting for the Final Master Script (fz-script, Gate 2)."))
+        lines.append((skill, step(bundle) if final else "Waiting for the Final Master Script (fz-master-script, Gate 2)."))
     text = "\n".join(f"{skill} · {step}" for skill, step in lines)
     if all(step.startswith("Done") for _, step in lines):
         text += "\nAll done: pack the Video Bundle (`fz.py pack <bundle> <zip>`) and the Editor Pack (`fz.py pack-editor <bundle> <zip>`) for download."

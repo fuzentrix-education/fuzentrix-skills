@@ -7,9 +7,9 @@
   },
   "skills": [
     "./skills/fz-cheatsheet",
-    "./skills/fz-lms-html",
+    "./skills/fz-coding-problem",
+    "./skills/fz-master-script",
     "./skills/fz-quiz",
-    "./skills/fz-script",
     "./skills/fz-slides",
     "./skills/fz-teleprompter",
     "./skills/fz-visuals"

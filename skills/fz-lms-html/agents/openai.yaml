@@ -1,4 +1,0 @@
-interface:
-  display_name: "Fuzentrix LMS HTML"
-  short_description: "Paste-ready LMS HTML for coding problems"
-  default_prompt: "Use $fz-lms-html to write the Problem Statement for this coding problem."

@@ -11,10 +11,10 @@ Every file is built by `scripts/fz.py` in this skill's folder: `python <skill fo
 
 ## Steps
 
-1. **Get the Video Bundle.** It needs a Final Master Script (from Fuzentrix Script). If the bundle is already in this chat's sandbox, use it; otherwise ask the user to upload the bundle zip and run `fz.py unpack <zip> <work>/<video-id>`.
-2. Check `fz.py status <bundle>`, `fz-slides` line. "Waiting for the Final Master Script" means the Master Script must be approved first, in Fuzentrix Script.
+1. **Get the Video Bundle.** It needs a Final Master Script (from Fuzentrix Master Script). If the bundle is already in this chat's sandbox, use it; otherwise ask the user to upload the bundle zip and run `fz.py unpack <zip> <work>/<video-id>`.
+2. Check `fz.py status <bundle>`, `fz-slides` line. "Waiting for the Final Master Script" means the Master Script must be approved first, in Fuzentrix Master Script.
 3. Run `fz.py build <bundle> slides`.
-4. If it lists problems ("SL04 bullet 2 is too long…", "too many bullets"), the slide content must change in the Master Script, which reopens its approval. Tell the user exactly which slide and what is wrong, and that the fix is made with Fuzentrix Script. Do not edit the slides by hand around the problem.
+4. If it lists problems ("SL04 bullet 2 is too long…", "too many bullets"), the slide content must change in the Master Script, which reopens its approval. Tell the user exactly which slide and what is wrong, and that the fix is made with Fuzentrix Master Script. Do not edit the slides by hand around the problem.
 5. Offer `editor_pack/slides/<video-id>_slides.pptx` and `slides.md` for download. Building the slides also refreshes the Editor Pack guide and markers. If the Video Editor needs slide images, they export them from PowerPoint (File → Export).
 6. If Fuzentrix Visuals adds images later, run this skill again so `image` slides pick them up.
 7. Pack the bundle (`fz.py pack <bundle> <work>/<video-id>.zip`) and offer the zip.

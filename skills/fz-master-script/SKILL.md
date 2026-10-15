@@ -1,9 +1,9 @@
 ---
-name: fz-script
-description: "Fuzentrix Script: Script Review of an Instructor Script, then the Master Script (narration, slide plan, Visual Events) and its approval. Use for a new script, edits, or approving it."
+name: fz-master-script
+description: "Fuzentrix Master Script: Script Review of an Instructor Script, then its Master Script (narration, slide plan, Visual Events) and approval. Use for a new script, edits, or approving it."
 ---
 
-# Fuzentrix Script
+# Fuzentrix Master Script
 
 The first skill for every Video. It takes an Instructor Script (usually Telugu-English; `.docx`, `.pdf`, `.md` or `.txt`) through:
 1. **Script Review**, then **Gate 1**: the Instructor decides on each Finding;
@@ -24,7 +24,7 @@ Every file is built by `scripts/fz.py` in this skill's folder: `python <skill fo
      `fz.py new <script> <work>/<video-id> --video-id <id> --title "<title>" --instructor "<name>" --config <pack>`.
      With no Configuration Pack, leave out `--config`; the bundle is then a DRAFT, and you tell the user so.
    - **Uploaded Video Bundle zip:** `fz.py unpack <zip> <work>/<video-id>`.
-2. **Find the next step:** `fz.py status <bundle>`, and read the `fz-script` line.
+2. **Find the next step:** `fz.py status <bundle>`, and read the `fz-master-script` line.
 3. **Read only the stage file for that step**, and follow it until its "Done when" is met:
    - Script Review → `stages/1-script-review.md`
    - Gate 1 → `stages/gate-1.md`

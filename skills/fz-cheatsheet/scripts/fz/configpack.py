@@ -180,7 +180,7 @@ def read_release(source) -> tuple:
         problems.append(f"Configuration Pack schema {manifest.get('config_schema_version')} is not supported by this skill (needs {SCHEMA_VERSION}).")
     needed = manifest.get("minimum_skill_version", "0.0.0")
     if _version_tuple(needed) > _version_tuple(SKILL_VERSION):
-        problems.append(f"Configuration Pack {manifest.get('config_version')} needs skill version {needed} or newer; this skill is {SKILL_VERSION}. Install the latest fz-video skill.")
+        problems.append(f"Configuration Pack {manifest.get('config_version')} needs skill version {needed} or newer; this skill is {SKILL_VERSION}. Install the latest Fuzentrix skills.")
     listed = {f["path"]: f["sha256"] for f in manifest.get("files", [])}
     for rel, digest in sorted(listed.items()):
         if rel not in files:

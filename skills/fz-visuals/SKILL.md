@@ -16,7 +16,7 @@ Every file is built by `scripts/fz.py` in this skill's folder: `python <skill fo
 
 ## Steps
 
-1. **Get the Video Bundle.** It needs a Final Master Script (from Fuzentrix Script). If the bundle is already in this chat's sandbox, use it; otherwise ask the user to upload the bundle zip and run `fz.py unpack <zip> <work>/<video-id>`.
+1. **Get the Video Bundle.** It needs a Final Master Script (from Fuzentrix Master Script). If the bundle is already in this chat's sandbox, use it; otherwise ask the user to upload the bundle zip and run `fz.py unpack <zip> <work>/<video-id>`.
 2. Check `fz.py status <bundle>`, `fz-visuals` line, for what is still needed.
 3. **Diagrams** (kind `diagram`):
    1. Start from `fz.py draft <bundle> diagrams all <file>`. Each entry carries its Visual Event's description.
@@ -36,6 +36,6 @@ Every file is built by `scripts/fz.py` in this skill's folder: `python <skill fo
 7. If any slide uses the `image` layout, tell the user to rebuild the slides with Fuzentrix Slides so they pick up the images.
 8. Pack the bundle (`fz.py pack <bundle> <work>/<video-id>.zip`). For the Video Editor, also run `fz.py pack-editor <bundle> <work>/<video-id>_editor_pack.zip`. Offer both.
 
-If this app cannot generate images, say so. Diagrams still work, and an image Visual Event can be removed through Fuzentrix Script.
+If this app cannot generate images, say so. Diagrams still work, and an image Visual Event can be removed through Fuzentrix Master Script.
 
 **Done when:** the build succeeds and the status's `fz-visuals` line says Done.

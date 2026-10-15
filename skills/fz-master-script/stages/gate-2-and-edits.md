@@ -20,4 +20,4 @@
 
 When the Content Lead approves, write the approval (`fz.py schema gate2`) and record it: `fz.py gate <bundle> 2 <file>`.
 
-**Done when:** `fz.py gate <bundle> 2 <file>` succeeds and the status's `fz-script` line says Done. Then tell the user the Master Script is Final, and that Fuzentrix Slides, Visuals and Teleprompter can now build from it, in this chat or a new one.
+**Done when:** `fz.py gate <bundle> 2 <file>` succeeds and the status's `fz-master-script` line says Done. Then tell the user the Master Script is Final, and that Fuzentrix Slides, Visuals and Teleprompter can now build from it, in this chat or a new one.

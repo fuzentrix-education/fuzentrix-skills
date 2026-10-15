@@ -49,7 +49,7 @@ def image_size(data: bytes):
 
 def require_final(bundle, what: str) -> dict:
     if bundle.manifest["stages"].get("master", {}).get("status") != "final":
-        raise Rejected(f"{what} are built only from the Final Master Script. Approve it at Gate 2 first (fz-script).")
+        raise Rejected(f"{what} are built only from the Final Master Script. Approve it at Gate 2 first (fz-master-script).")
     return read_json(bundle.path("02_master", "master.json"))
 
 

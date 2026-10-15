@@ -1,9 +1,9 @@
 ---
-name: fz-lms-html
-description: "Fuzentrix LMS HTML for coding problems: Problem Statement, Solution, Test Cases, Hints, Editorial. Use when asked for /lms content."
+name: fz-coding-problem
+description: "Fuzentrix Coding Problem: LMS HTML for a coding problem's Problem Statement, Solution, Test Cases, Hints, Editorial. Use when asked for /lms content."
 ---
 
-# Fuzentrix LMS HTML
+# Fuzentrix Coding Problem
 
 Writes paste-ready LMS HTML for a coding problem: exactly the sections the user asks for, from Problem Statement, Solution, Test Cases, Test Case Explanation, Hints and Editorial.
 

@@ -1,4 +1,4 @@
-"""fz-lms-html: LMS HTML for coding problems (Problem Statement, Solution, Test Cases, Test Case Explanation,
+"""fz-coding-problem: LMS HTML for coding problems (Problem Statement, Solution, Test Cases, Test Case Explanation,
 Hints, Editorial). Only the requested sections are built; a Python solution is run against every example
 and test case before anything is written."""
 from __future__ import annotations
