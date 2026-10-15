@@ -25,7 +25,7 @@ Every skill is self-contained: its instructions plus the tested Python builders 
 ### Codex (CLI, or Codex in the ChatGPT desktop app)
 
 ```bash
-codex plugin marketplace add <owner>/fuzentrix-skills
+codex plugin marketplace add fuzentrix-education/fuzentrix-skills
 ```
 
 Then open `/plugins` (CLI) or the **Plugins** tab (desktop app), install **fuzentrix-skills**, and start a new session.
@@ -33,14 +33,14 @@ Then open `/plugins` (CLI) or the **Plugins** tab (desktop app), install **fuzen
 ### Claude Code
 
 ```
-/plugin marketplace add <owner>/fuzentrix-skills
+/plugin marketplace add fuzentrix-education/fuzentrix-skills
 /plugin install fuzentrix-skills@fuzentrix
 ```
 
 ### Other agents (Gemini CLI, Cursor, …)
 
 ```bash
-npx skills@latest add <owner>/fuzentrix-skills
+npx skills@latest add fuzentrix-education/fuzentrix-skills
 ```
 
 Or copy the folders in `skills/` into the agent's skills folder.
