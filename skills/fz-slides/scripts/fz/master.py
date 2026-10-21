@@ -80,6 +80,32 @@ def written_chunks(bundle) -> list:
     return sorted(p.stem for p in folder.glob("M*.json")) if folder.exists() else []
 
 
+def stale_chunks(bundle) -> dict:
+    """Written Master Script Chunks that no longer pass their checks against the Reviewed Script (after a Script
+    Change or a new Gate 1), with the reasons. They are updated before the Master Script is built again."""
+    from .gates import accepted_changes, line_roles
+
+    written = set(written_chunks(bundle))
+    if not written or not bundle.path("01_review", "gate1.json").exists():
+        return {}
+    roles, accepted, plan = line_roles(bundle), accepted_changes(bundle), plan_segments(bundle)
+    out = {}
+    for c in master_chunks(bundle):
+        if c["id"] in written:
+            problems = []
+            for seg in read_json(bundle.path("02_master", "chunks", f"{c['id']}.json"))["segments"]:
+                problems += _check_segment(seg, plan[seg["id"]], segment_lines(bundle, plan[seg["id"]]), roles, accepted)
+            if problems:
+                out[c["id"]] = problems
+    return out
+
+
+def _require_reviewed_script(bundle) -> None:
+    if "1" not in bundle.manifest["gates"]:
+        raise Rejected("The Reviewed Script is waiting for the Instructor's approval (Gate 1, in Fuzentrix Script Review). "
+                       "Update the Master Script after it.")
+
+
 # --- Master Script Chunks -------------------------------------------------------
 
 SLIDE_LAYOUTS = ("title", "agenda", "bullets", "definition", "code", "comparison", "diagram", "quote", "image", "summary")
@@ -101,8 +127,9 @@ def segment_lines(bundle, segment: dict) -> list:
 
 
 def submit_chunk(bundle, data: dict) -> str:
-    from .gates import accepted_findings, line_roles
+    from .gates import accepted_changes, line_roles
 
+    _require_reviewed_script(bundle)
     chunks = {c["id"]: c for c in master_chunks(bundle)}
     chunk = chunks.get(data.get("chunk"))
     if chunk is None:
@@ -112,7 +139,7 @@ def submit_chunk(bundle, data: dict) -> str:
         raise Rejected(f"Chunk {chunk['id']} must contain exactly Segments {', '.join(chunk['segments'])}, in that order (got {', '.join(map(str, given)) or 'none'}).")
 
     roles = line_roles(bundle)
-    accepted = accepted_findings(bundle)
+    accepted = accepted_changes(bundle)
     plan = plan_segments(bundle)
     problems = []
     for seg in data["segments"]:
@@ -170,12 +197,12 @@ def _check_segment(seg: dict, planned: dict, lines: list, roles: dict, accepted:
                 if fixes.get(lid):
                     allowed = [t for t in fixes[lid] if t]  # an accepted replacement must be applied
                 if _norm(s.get("text", "")) not in [_norm(a) for a in allowed]:
-                    problems.append(f"{sid}: {lid} must match the Instructor Script word for word"
-                                    + (" (an accepted Finding replaces it; use that replacement)." if fixes.get(lid) else "."))
+                    problems.append(f"{sid}: {lid} must match the Reviewed Script word for word"
+                                    + (" (an accepted Finding or Script Change replaces it; use the new words)." if fixes.get(lid) else "."))
         else:
             fid = s.get("from_finding")
             if not fid or fid not in accepted:
-                problems.append(f"{sid}: an added line must name the accepted Finding it comes from ('from_finding').")
+                problems.append(f"{sid}: an added line must name the accepted Finding or Script Change it comes from ('from_finding').")
             if not str(s.get("text", "")).strip():
                 problems.append(f"{sid}: an added line has no text.")
     if [g for g in given if g in expected] != [e for e in expected if e in given]:
@@ -220,12 +247,12 @@ def _check_segment(seg: dict, planned: dict, lines: list, roles: dict, accepted:
 
 def describe_chunk(bundle, chunk_id) -> str:
     """Everything the Host App needs to write one Master Script Chunk."""
-    from .gates import accepted_findings, line_roles
+    from .gates import accepted_changes, line_roles
 
     chunks = {c["id"]: c for c in master_chunks(bundle)}
     if chunk_id not in chunks:
         raise Rejected(f"There is no Master Script Chunk {chunk_id} ({', '.join(chunks) or 'submit the plan first'}).")
-    roles, plan, accepted = line_roles(bundle), plan_segments(bundle), accepted_findings(bundle)
+    roles, plan, accepted = line_roles(bundle), plan_segments(bundle), accepted_changes(bundle)
     out = []
     for sid in chunks[chunk_id]["segments"]:
         seg = plan[sid]
@@ -247,13 +274,17 @@ def describe_chunk(bundle, chunk_id) -> str:
 
 def build(bundle) -> dict:
     from . import views
-    from .gates import accepted_findings, line_roles
+    from .gates import accepted_changes, line_roles
 
+    _require_reviewed_script(bundle)
     missing = [c["id"] for c in master_chunks(bundle) if c["id"] not in written_chunks(bundle)]
     if not master_chunks(bundle):
         raise Rejected("Submit the Segment plan first.")
     if missing:
         raise Rejected([f"Master Script Chunk {c} has not been written yet." for c in missing])
+    stale = stale_chunks(bundle)
+    if stale:
+        raise Rejected([f"Master Script Chunk {c} must be updated: {p}" for c, problems in stale.items() for p in problems])
 
     plan = read_json(bundle.path("02_master", "plan.json"))
     planned = {s["id"]: s for s in plan["segments"]}
@@ -276,7 +307,7 @@ def build(bundle) -> dict:
         "key_terms": plan.get("key_terms", []),
         "segments": segments,
         "line_roles": line_roles(bundle),
-        "findings_applied": sorted(accepted_findings(bundle)),
+        "findings_applied": sorted(accepted_changes(bundle)),
         "points_to_check": points,
     }
     write_json(bundle.path("02_master", "master.json"), master)
@@ -289,17 +320,20 @@ def build(bundle) -> dict:
 
 
 def draft_chunk(bundle, chunk_id: str) -> dict:
-    """A Master Script Chunk skeleton with every Segment's spoken lines already filled in exactly:
-    the script's words, accepted replacements, accepted additions in place, accepted deletions left out.
-    The Host App fills in meaning_en, slide and visual_events."""
-    from .gates import accepted_findings, line_roles
+    """A Master Script Chunk skeleton with every Segment's spoken lines already filled in exactly: the script's words
+    with every accepted Finding and Script Change applied (replacements, additions in place, deletions left out).
+    The Host App fills in meaning_en, slide and visual_events. For a Chunk already written, those are kept and only
+    the spoken lines are refreshed from the Reviewed Script."""
+    from .gates import accepted_changes, line_roles
 
     chunks = {c["id"]: c for c in master_chunks(bundle)}
     if chunk_id not in chunks:
         raise Rejected(f"There is no Master Script Chunk {chunk_id} ({', '.join(chunks) or 'submit the plan first'}).")
-    roles, plan, accepted = line_roles(bundle), plan_segments(bundle), accepted_findings(bundle)
+    roles, plan, accepted = line_roles(bundle), plan_segments(bundle), accepted_changes(bundle)
     replace = {f["line"]: f["fix_text"] for f in accepted.values() if f.get("line") and "fix_text" in f}
     additions = [f for f in accepted.values() if f.get("after_line") and f.get("fix_text")]
+    saved_path = bundle.path("02_master", "chunks", f"{chunk_id}.json")
+    saved = {seg["id"]: seg for seg in read_json(saved_path)["segments"]} if saved_path.exists() else {}
     segments = []
     for sid in chunks[chunk_id]["segments"]:
         seg = plan[sid]
@@ -311,10 +345,11 @@ def draft_chunk(bundle, chunk_id: str) -> dict:
         for f in additions:
             if lo <= _num(f["after_line"]) <= hi:
                 entries.append((_num(f["after_line"]) + 0.5, {"text": f["fix_text"], "from_finding": f["id"]}))
-        segments.append({
+        spoken = [e for _, e in sorted(entries, key=lambda x: x[0])]
+        segments.append(dict(saved[sid], spoken=spoken) if sid in saved else {
             "id": sid,
             "meaning_en": "",
-            "spoken": [e for _, e in sorted(entries, key=lambda x: x[0])],
+            "spoken": spoken,
             "slide": {"title": "", "layout": "", "bullets": [], "source_lines": []},
             "visual_events": [],
             "points_to_check": [],

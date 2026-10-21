@@ -110,6 +110,9 @@ def cmd_submit(args) -> None:
     elif args.kind == "review-overview":
         review.submit_overview(bundle, data)
         msg = "Accepted Script Review overview."
+    elif args.kind == "script-changes":
+        changes = review.submit_changes(bundle, data)
+        msg = f"Accepted {len(changes)} Script Change(s). The Instructor approves them at Gate 1."
     elif args.kind == "master":
         chunk = master.submit_chunk(bundle, data)
         msg = f"Accepted Master Script Chunk {chunk}."
@@ -189,7 +192,10 @@ def cmd_gate(args) -> None:
         data = _load_json_file(args.file) if args.file else {}
         record = gates.record_gate1(bundle, data)
         accepted = sum(1 for d in record["decisions"].values() if d == "accept")
-        print(f"Gate 1 recorded for {record['approver']}: {accepted} of {len(record['decisions'])} Finding(s) accepted.")
+        changes = f" and {len(record['script_changes'])} Script Change(s) approved" if record["script_changes"] else ""
+        carried = " (decisions kept from the last Gate 1)" if record["decisions_carried_over"] else ""
+        print(f"Gate 1 recorded for {record['approver']}: {accepted} of {len(record['decisions'])} Finding(s) accepted{carried}{changes}. "
+              "Wrote 01_review/reviewed_script.md and .html.")
     elif args.n == "3":
         record = gates.record_gate3(bundle, _load_json_file(args.file) if args.file else {})
         print(f"Gate 3 recorded for {record['approver']}.")
@@ -205,6 +211,9 @@ def cmd_draft(args) -> None:
     if args.kind == "review":
         data = review.draft_chunk(bundle, args.id)
         todo = "fill in every Line Role and add Findings"
+    elif args.kind == "script-changes":
+        data = review.draft_changes(bundle)
+        todo = "add, edit or remove the Instructor's changes, keeping every change still wanted"
     elif args.kind == "diagrams":
         data = visuals.draft_diagrams(bundle)
         todo = "set each diagram's type (flow, table, tree, compare, or image) and its content"
@@ -216,7 +225,8 @@ def cmd_draft(args) -> None:
         todo = f"write the {len(data['questions'])} question(s) for this Video"
     else:
         data = master.draft_chunk(bundle, args.id)
-        todo = "keep the spoken lines as they are; fill in meaning_en, slide and visual_events"
+        todo = ("its spoken lines are refreshed from the Reviewed Script; check its slide and visual_events still fit the new words"
+                if args.id in master.written_chunks(bundle) else "keep the spoken lines as they are; fill in meaning_en, slide and visual_events")
     write_json(args.file, data)
     print(f"Wrote a draft of {args.kind} {args.id} to {args.file}: {todo}, then `fz.py submit <bundle> {args.kind} {args.file}`.")
 
@@ -314,7 +324,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("submit", help="Check and save AI-written content JSON")
     p.add_argument("bundle")
-    p.add_argument("kind", choices=["review", "review-overview", "plan", "master", "diagrams", "quiz-request", "quiz", "cheatsheet"])
+    p.add_argument("kind", choices=["review", "review-overview", "script-changes", "plan", "master", "diagrams", "quiz-request", "quiz", "cheatsheet"])
     p.add_argument("file")
     p.set_defaults(func=cmd_submit)
 
@@ -331,8 +341,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("draft", help="Write a pre-filled JSON draft for a review or Master Script Chunk")
     p.add_argument("bundle")
-    p.add_argument("kind", choices=["review", "master", "diagrams", "quiz", "cheatsheet"])
-    p.add_argument("id", help="Chunk id (C01, M01), or the Video id for a quiz")
+    p.add_argument("kind", choices=["review", "script-changes", "master", "diagrams", "quiz", "cheatsheet"])
+    p.add_argument("id", help="Chunk id (C01, M01), the Video id for a quiz, or 'all'")
     p.add_argument("file")
     p.set_defaults(func=cmd_draft)
 

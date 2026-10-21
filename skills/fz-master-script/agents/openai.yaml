@@ -1,4 +1,4 @@
 interface:
   display_name: "Fuzentrix Master Script"
-  short_description: "Script Review and Master Script for a Video"
-  default_prompt: "Use $fz-master-script to review this Instructor Script and build its Master Script."
+  short_description: "Master Script and slide plan from a Reviewed Script"
+  default_prompt: "Use $fz-master-script to build the Master Script for this Video Bundle."

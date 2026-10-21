@@ -10,10 +10,7 @@
 
 1. Find the Segment(s) the edit touches in `02_master/master_script.md`, and their Master Script Chunk (`fz.py show <bundle> segments <Mxx>`).
 2. Rewrite that whole Chunk's JSON from `02_master/chunks/<Mxx>.json` with the change, self-check it, and `fz.py submit <bundle> master <file>`. Then `fz.py build <bundle> master`.
-3. Changing what the Instructor **says** goes through the Instructor:
-   - add the change as a Finding with `fix_text` (resubmit that Chunk's review, then `fz.py build <bundle> review`);
-   - record Gate 1 again, with the earlier decisions from `01_review/gate1.json` plus the new one;
-   - then update the Master Script Chunk.
+3. Changing what the Instructor **says** is a Script Change: tell the user it is made in Fuzentrix Script Review and approved by the Instructor at Gate 1. Afterwards, the status here names the Master Script Chunks to update.
 4. Tell the user what changed. A change to a Final Master Script reopens Gate 2; the status shows it.
 
 ## Recording approval

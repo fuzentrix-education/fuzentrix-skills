@@ -18,7 +18,7 @@ Every file is built by `scripts/fz.py` in this skill's folder: `python <skill fo
    - `.docx`, large print;
    - `.html`, a scrolling teleprompter in the browser (Play, Speed, Size, Mirror);
    - `teleprompter_report.md`.
-4. Ask the Instructor to skim "Lines kept off the teleprompter" in the report. If a line there should be spoken, that is a Line Role correction, made with Fuzentrix Master Script, and then this skill runs again.
+4. Ask the Instructor to skim "Lines kept off the teleprompter" in the report. If a line there should be spoken, that is a Line Role correction: the Instructor makes it at Gate 1 in Fuzentrix Script Review, Fuzentrix Master Script updates the Segment, and then this skill runs again.
 5. Pack the bundle (`fz.py pack <bundle> <work>/<video-id>.zip`) and offer the zip.
 
 **Done when:** the build succeeds and the status's `fz-teleprompter` line says Done.

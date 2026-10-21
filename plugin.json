@@ -1,6 +1,6 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "fuzentrix-skills",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Fuzentrix content skills: Script Review and Master Script, slides, visuals, teleprompter, LMS quizzes, cheatsheets and coding-problem HTML, for B.Tech video courses."
 }

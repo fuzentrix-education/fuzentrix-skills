@@ -55,13 +55,29 @@ fz.py submit <bundle> review-overview <file>
             "points_to_check": [],
         },
     ),
+    "script-changes": (
+        """The Instructor's own wording changes to their script (Script Changes). Submit with:
+fz.py submit <bundle> script-changes <file>
+The file holds EVERY Script Change still wanted; it replaces the earlier list. Start from
+fz.py draft <bundle> script-changes all <file>. Each change gives either:
+- line + text: the line's new words, in the Instructor's own Telugu-English style ("" deletes the line), or
+- after_line + text: a new line to add after that line.
+- note (optional): why, in a few words.
+Script Changes reopen Gate 1, and a built Master Script goes back to Gate 2.""",
+        {"changes": [
+            {"line": "L66", "text": "IBM IMS, 1966 lo NASA kosam create chesina modati DBMS lo okati!", "note": "Instructor's wording"},
+            {"after_line": "L80", "text": "Next class lo manam SQL basics chuddam."},
+        ]},
+    ),
     "gate1": (
-        """Gate 1: the Instructor's decisions on the Script Review. Record with: fz.py gate <bundle> 1 <file>
+        """Gate 1: the Instructor approves the Reviewed Script. Record with: fz.py gate <bundle> 1 <file>
 - approver: the Instructor's name.
-- decisions: EVERY Finding id from review_report → "accept" or "reject".
+- decisions: EVERY Finding id from review_report → "accept" or "reject". When approving again with the
+  same Findings (for example after new Script Changes), leave decisions out to keep the earlier ones.
 - fix_text (optional): Finding id → the replacement line the Instructor wants instead ("" deletes the line).
 - line_roles (optional): corrections to Line Roles, line id → role.
-- notes (optional).""",
+- notes (optional).
+Their Script Changes (fz.py submit <bundle> script-changes) are approved with it.""",
         {
             "approver": "Swara",
             "decisions": {"F001": "accept", "F002": "reject", "F003": "accept"},
@@ -93,7 +109,7 @@ Read the Chunk first with: fz.py show <bundle> segments <chunk id>
   - meaning_en: what is said, in plain English.
   - spoken: EVERY spoken line of the Segment, in order: {{"line": "L9", "text": <exact line text>}}.
     If an accepted Finding gives replacement text for a line, use that text instead.
-    A line added by an accepted Finding: {{"text": ..., "from_finding": "F003"}}.
+    A line added by an accepted Finding or Script Change: {{"text": ..., "from_finding": "F003"}} (or "SC02").
   - slide: title (8 words or fewer), layout ({", ".join(SLIDE_LAYOUTS)}), bullets (English, at most ~5, each at most
     2 lines), source_lines (the lines its content comes from). Optional: code and output (layout code),
     columns [{{title, bullets}}] (layout comparison). For a diagram, write a bullet as "A → B → C".

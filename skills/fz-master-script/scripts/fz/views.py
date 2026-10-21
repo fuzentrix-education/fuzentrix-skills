@@ -45,6 +45,34 @@ def review_markdown(bundle, review: dict) -> str:
     return "\n".join(out) + "\n"
 
 
+def reviewed_script_markdown(bundle) -> str:
+    """The Instructor Script with every accepted Finding and Script Change applied: what the Instructor approved
+    at Gate 1, and the words the Master Script must use."""
+    from .gates import accepted_changes, line_roles
+
+    gate = bundle.manifest["gates"]["1"]
+    roles, changes = line_roles(bundle), accepted_changes(bundle)
+    replaced = {c["line"]: c for c in changes.values() if c.get("line") and "fix_text" in c}
+    added = {}
+    for c in changes.values():
+        if c.get("after_line") and c.get("fix_text"):
+            added.setdefault(c["after_line"], []).append(c)
+    out = [f"# Reviewed Script: {bundle.manifest['video']['id']}", "",
+           f"Approved by {gate['approver']} at Gate 1 ({gate['at'][:10]}). The **spoken** lines are said on camera exactly as "
+           "written here, and the Master Script uses these words. Changes are marked with the Finding (F…) or "
+           "Script Change (SC…) that made them.", "", config_note(bundle), ""]
+    for line in bundle.lines():
+        lid, role, c = line["id"], roles.get(line["id"], "unknown"), replaced.get(line["id"])
+        if c is None:
+            words, tag = line["text"], ""
+        else:
+            words = f"~~{line['text']}~~ " + (c["fix_text"] or "(deleted)")
+            tag = f" _({c['id']})_"
+        out.append(f"- **{lid}** {words}{tag}" if role == "spoken" else f"- {lid} · _{role.replace('_', ' ')}_ · {words}{tag}")
+        out += [f"- **+ after {lid}** {a['fix_text']} _({a['id']})_" for a in added.get(lid, [])]
+    return "\n".join(out) + "\n"
+
+
 def as_spoken(bundle):
     """How a script line is said: the same clean-up the Teleprompter Script uses (no bullets, ✔ or '>')."""
     from . import settings
@@ -112,6 +140,7 @@ def write_pair(stem: Path, markdown: str, title: str) -> None:
 
 def _inline(text: str) -> str:
     text = html.escape(text, quote=False)
+    text = re.sub(r"~~(.+?)~~", r"<del>\1</del>", text)
     text = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", text)
     text = re.sub(r"`(.+?)`", r"<code>\1</code>", text)
     text = re.sub(r"(?<!\w)_(.+?)_(?!\w)", r"<em>\1</em>", text)

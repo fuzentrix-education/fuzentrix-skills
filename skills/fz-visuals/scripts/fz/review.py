@@ -140,6 +140,61 @@ def build(bundle) -> dict:
     return review
 
 
+def script_changes(bundle) -> list:
+    """The Instructor's own wording changes (SC01…), made while they review the script."""
+    path = bundle.path("01_review", "script_changes.json")
+    return read_json(path)["changes"] if path.exists() else []
+
+
+def submit_changes(bundle, data: dict) -> list:
+    """Replace the Script Changes. They need the Instructor's approval at Gate 1, so any earlier Gate 1 reopens,
+    and a built Master Script goes back to Gate 2."""
+    from . import master
+
+    if bundle.manifest["stages"].get("review", {}).get("status") != "built":
+        raise Rejected("Build the review report first (`fz.py build <bundle> review`): the Instructor makes Script Changes while reviewing it.")
+    changes = data.get("changes")
+    if not isinstance(changes, list):
+        raise Rejected("'changes' must be a list of every Script Change (an empty list removes them all).")
+    lines = {l["id"] for l in bundle.lines()}
+    problems, seen = [], set()
+    for i, c in enumerate(changes, 1):
+        label = f"Change {i}"
+        if not isinstance(c, dict):
+            problems.append(f"{label} must be an object.")
+            continue
+        if c.get("line") and c.get("after_line"):
+            problems.append(f"{label}: give 'line' (to change or delete it) or 'after_line' (to add a line after it), not both.")
+            continue
+        key = ("line", c["line"]) if c.get("line") else ("after_line", c.get("after_line"))
+        if not key[1]:
+            problems.append(f"{label}: give 'line' to change or delete a line, or 'after_line' to add a line after it.")
+        elif key[1] not in lines:
+            problems.append(f"{label}: {key[1]} does not exist.")
+        elif key in seen:
+            problems.append(f"{label}: {key[1]} already has a change; give one change per line.")
+        seen.add(key)
+        text = c.get("text")
+        if not isinstance(text, str):
+            problems.append(f"{label}: 'text' must be the new words (\"\" deletes the line).")
+        elif key[0] == "after_line" and not text.strip():
+            problems.append(f"{label}: an added line needs 'text'.")
+    if problems:
+        raise Rejected(problems)
+    saved = [dict(c, id=f"SC{i:02d}") for i, c in enumerate(changes, 1)]
+    write_json(bundle.path("01_review", "script_changes.json"), {"changes": saved})
+    if bundle.manifest["gates"].pop("1", None) is not None:
+        bundle.log("Gate 1 reopened by Script Changes")
+    if bundle.manifest["stages"].get("master", {}).get("status") in ("built", "final"):
+        master.reopen(bundle)
+    return saved
+
+
+def draft_changes(bundle) -> dict:
+    """The current Script Changes, to edit and submit again in full."""
+    return {"changes": [{k: v for k, v in c.items() if k != "id"} for c in script_changes(bundle)]}
+
+
 def draft_chunk(bundle, chunk: str) -> dict:
     """A review skeleton: every line of the Chunk, with its Line Role left to fill in."""
     if chunk not in chunk_ids(bundle):

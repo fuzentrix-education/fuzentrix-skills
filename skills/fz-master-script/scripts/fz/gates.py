@@ -1,17 +1,34 @@
 """Gates: points where a named person approves before work continues."""
 from __future__ import annotations
 
+import hashlib
+import json
+
+from . import views
 from .bundle import now, read_json, write_json
 from .problems import Rejected
-from .review import LINE_ROLES
+from .review import LINE_ROLES, script_changes
 
 DECISIONS = ("accept", "reject")
 
 
+def _fingerprint(review: dict) -> str:
+    return hashlib.sha256(json.dumps(review["findings"], sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()
+
+
 def record_gate1(bundle, data: dict) -> dict:
+    """The Instructor approves the Reviewed Script: a decision on every Finding, plus their Script Changes.
+    Approving again with the same Findings (say, after new Script Changes) may leave out the decisions;
+    the earlier ones are kept."""
     if bundle.manifest["stages"].get("review", {}).get("status") != "built":
         raise Rejected("Build the review report first (`fz.py build <bundle> review`); Gate 1 decides on its Findings.")
     review = read_json(bundle.path("01_review", "review.json"))
+    earlier = bundle.path("01_review", "gate1.json")
+    earlier = read_json(earlier) if earlier.exists() else None
+    carried = not data.get("decisions") and bool(earlier) and earlier.get("review_fingerprint") == _fingerprint(review)
+    if carried:
+        data = dict(data, decisions=earlier["decisions"], fix_text={**earlier["fix_text"], **(data.get("fix_text") or {})},
+                    line_roles={**earlier["line_roles"], **(data.get("line_roles") or {})})
     lines = {l["id"] for l in bundle.lines()}
     ids = [f["id"] for f in review["findings"]]
     decisions = data.get("decisions") or {}
@@ -40,10 +57,16 @@ def record_gate1(bundle, data: dict) -> dict:
         raise Rejected(problems)
     record = {"approver": data["approver"], "at": now(), "decisions": decisions,
               "fix_text": data.get("fix_text") or {}, "line_roles": data.get("line_roles") or {},
-              "notes": data.get("notes", "")}
+              "script_changes": [c["id"] for c in script_changes(bundle)], "decisions_carried_over": carried,
+              "review_fingerprint": _fingerprint(review), "notes": data.get("notes", "")}
     write_json(bundle.path("01_review", "gate1.json"), record)
     bundle.manifest["gates"]["1"] = {"approver": record["approver"], "at": record["at"]}
     bundle.log(f"gate 1 by {record['approver']}")
+    views.write_pair(bundle.path("01_review", "reviewed_script"), views.reviewed_script_markdown(bundle),
+                     title=f"Reviewed Script: {bundle.manifest['video']['id']}")
+    from . import master
+    if bundle.manifest["stages"].get("master", {}).get("status") in ("built", "final") and master.stale_chunks(bundle):
+        master.reopen(bundle)  # the approved words changed under a built Master Script
     return record
 
 
@@ -56,16 +79,26 @@ def line_roles(bundle) -> dict:
     return roles
 
 
-def accepted_findings(bundle) -> dict:
-    """Accepted Findings by id, with any replacement text the Instructor changed at Gate 1."""
+def accepted_changes(bundle) -> dict:
+    """Every change the Master Script applies to the Instructor Script, by id: the Findings the Instructor accepted
+    at Gate 1 (with any replacement they changed) and their own Script Changes (SC01…). A Script Change to a line
+    replaces an accepted Finding's replacement for that line."""
     gate1 = read_json(bundle.path("01_review", "gate1.json"))
+    changes = script_changes(bundle)
+    changed = {c["line"] for c in changes if c.get("line")}
     out = {}
     for f in read_json(bundle.path("01_review", "review.json"))["findings"]:
         if gate1["decisions"].get(f["id"]) == "accept":
             f = dict(f)
             if f["id"] in gate1["fix_text"]:
                 f["fix_text"] = gate1["fix_text"][f["id"]]
+            if f.get("line") in changed:
+                f.pop("fix_text", None)
             out[f["id"]] = f
+    for c in changes:
+        where = {"line": c["line"]} if c.get("line") else {"after_line": c["after_line"]}
+        out[c["id"]] = dict(where, id=c["id"], fix_text=c["text"], source="instructor",
+                            problem="Script Change by the Instructor", suggestion=c.get("note") or "use these words")
     return out
 
 

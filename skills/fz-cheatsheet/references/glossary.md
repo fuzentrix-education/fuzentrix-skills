@@ -6,7 +6,9 @@
 - **Chunk**: a run of consecutive script lines handled in one turn (C01…). Master Script Chunks (M01…) group whole Segments.
 - **Line Role**: the purpose of a line: spoken, heading, speaker_label, stage_direction, note_to_team, slide_only, duplicate.
 - **Finding**: one problem found by Script Review, quoting its line, with a severity and a suggested fix.
-- **Gate**: a person's approval before work continues. Gate 1: the Instructor decides on Findings. Gate 2: the Content Lead approves the Master Script, making it Final.
+- **Script Change**: a change the Instructor makes to the wording of their own script (SC01…): a line's new words, a deleted line, or an added line.
+- **Reviewed Script**: the Instructor Script with every accepted Finding and Script Change applied, approved by the Instructor at Gate 1. The Master Script uses its words exactly.
+- **Gate**: a person's approval before work continues. Gate 1: the Instructor approves the Reviewed Script (a decision on each Finding, plus their Script Changes). Gate 2: the Content Lead approves the Master Script, making it Final.
 - **Master Script**: the complete plan for the finished Video: what is said, what is on screen, every Visual Event.
 - **Segment**: a stretch of spoken lines within one Video Section that shares one Slide (S01…).
 - **Video Section**: hook, intro, recap, agenda, explanation, summary, teaser (optional fun fact), outro.

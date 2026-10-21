@@ -8,7 +8,7 @@ def next_step(bundle) -> tuple:
     """Return (the first unfinished skill, one status line per skill)."""
     if bundle.manifest.get("kind") == "topic":
         return topic_next_step(bundle)
-    lines = [("fz-master-script", _script_step(bundle))]
+    lines = [("fz-script-review", _review_step(bundle)), ("fz-master-script", _master_step(bundle))]
     final = bundle.manifest["stages"].get("master", {}).get("status") == "final"
     for skill, step in (("fz-slides", _slides_step), ("fz-visuals", _visuals_step), ("fz-teleprompter", _teleprompter_step)):
         lines.append((skill, step(bundle) if final else "Waiting for the Final Master Script (fz-master-script, Gate 2)."))
@@ -19,7 +19,7 @@ def next_step(bundle) -> tuple:
     return (first, text)
 
 
-def _script_step(bundle) -> str:
+def _review_step(bundle) -> str:
     stages, gates = bundle.manifest["stages"], bundle.manifest["gates"]
     if stages.get("review", {}).get("status") != "built":
         chunks = review.chunk_ids(bundle)
@@ -35,16 +35,27 @@ def _script_step(bundle) -> str:
     if "1" not in gates:
         return ("Next: Gate 1. Show the Instructor review_report and record their decision on every Finding "
                 "(`fz.py schema gate1`, then `fz.py gate <bundle> 1 <file>`).")
+    return f"Done: Reviewed Script (Gate 1 by {gates['1']['approver']})."
+
+
+def _master_step(bundle) -> str:
+    stages, gates = bundle.manifest["stages"], bundle.manifest["gates"]
+    if "1" not in gates:
+        return "Waiting for the Reviewed Script (fz-script-review, Gate 1)."
     chunks = master.master_chunks(bundle)
     if not chunks:
         return ("Next: Master Script plan: the Segments of the whole Video (`fz.py schema plan`), "
                 "then `fz.py submit <bundle> plan <file>`.")
-    done = master.written_chunks(bundle)
+    done, stale = master.written_chunks(bundle), master.stale_chunks(bundle)
     for i, c in enumerate(chunks, 1):
         if c["id"] not in done:
             return (f"Next: Master Script of Chunk {c['id']} ({i} of {len(chunks)}): Segments {c['segments'][0]}–{c['segments'][-1]}. "
                     f"Read them with `fz.py show <bundle> segments {c['id']}`, start from `fz.py draft <bundle> master {c['id']} <file>`, "
                     f"then `fz.py submit <bundle> master <file>`.")
+        if c["id"] in stale:
+            return (f"Next: update Master Script Chunk {c['id']}: the Reviewed Script changed ({stale[c['id']][0]}). "
+                    f"Start from `fz.py draft <bundle> master {c['id']} <file>`, which keeps its slide and Visual Events with the new "
+                    f"spoken lines; check they still fit the new words, then `fz.py submit <bundle> master <file>`.")
     status = stages.get("master", {}).get("status")
     if status not in ("built", "final"):
         return "Next: build the Master Script with `fz.py build <bundle> master`."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Fuzentrix Script Review"
+  short_description: "Review an Instructor Script and approve its wording"
+  default_prompt: "Use $fz-script-review to review this Instructor Script."

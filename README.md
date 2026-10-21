@@ -4,7 +4,8 @@ AI skills that turn an Instructor Script into everything a Fuzentrix course vide
 
 | Skill | Use it to… |
 |---|---|
-| `fz-master-script` | Review an Instructor Script, build its Master Script (narration, slide plan, Visual Events), edit it, and get it approved |
+| `fz-script-review` | Review an Instructor Script, take the Instructor's decisions and wording changes, and get it approved (the Reviewed Script) |
+| `fz-master-script` | Build the Master Script (narration, slide plan, Visual Events) from the Reviewed Script, edit it, and get it approved |
 | `fz-slides` | Build the Video's editable PowerPoint slides |
 | `fz-visuals` | Make the Video's images, code-drawn diagrams and storyboards |
 | `fz-teleprompter` | Make the Instructor's teleprompter script |
@@ -49,9 +50,10 @@ Menu names change between app versions. If a step looks different, note what you
 
 ## Use
 
-1. **Script.** Attach an Instructor Script (`.pdf`, `.docx`, `.md`, `.txt`) and the Fuzentrix Configuration Pack zip, then say: *"Use Fuzentrix Master Script on this Instructor Script. Video ID dbms-p2-t1-v1."*
-2. **Production.** When the Master Script is approved, use Fuzentrix **Slides**, **Visuals** and **Teleprompter**, in the same chat or a new one with the Video Bundle zip.
-3. **Topic.** Use Fuzentrix **Quiz** and **Cheatsheet** with the Video Bundle zips of the Topic's Videos.
+1. **Script Review.** Attach an Instructor Script (`.pdf`, `.docx`, `.md`, `.txt`) and the Fuzentrix Configuration Pack zip, then say: *"Use Fuzentrix Script Review on this Instructor Script. Video ID dbms-p2-t1-v1."* The Instructor decides on each Finding, makes any wording changes, and approves.
+2. **Master Script.** In a new chat with the bundle zip: *"Use Fuzentrix Master Script for this Video Bundle."* The Content Lead approves it.
+3. **Production.** When the Master Script is approved, use Fuzentrix **Slides**, **Visuals** and **Teleprompter**, in the same chat or a new one with the Video Bundle zip.
+4. **Topic.** Use Fuzentrix **Quiz** and **Cheatsheet** with the Video Bundle zips of the Topic's Videos.
 
 Every result arrives as a downloadable zip. Upload it again in a new chat to continue.
 

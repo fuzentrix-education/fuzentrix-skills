@@ -1,6 +1,6 @@
 {
   "name": "fuzentrix-skills",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Fuzentrix content skills: Script Review and Master Script, slides, visuals, teleprompter, LMS quizzes, cheatsheets and coding-problem HTML, for B.Tech video courses.",
   "author": {
     "name": "Fuzentrix"
@@ -10,6 +10,7 @@
     "./skills/fz-coding-problem",
     "./skills/fz-master-script",
     "./skills/fz-quiz",
+    "./skills/fz-script-review",
     "./skills/fz-slides",
     "./skills/fz-teleprompter",
     "./skills/fz-visuals"
