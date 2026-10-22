@@ -22,7 +22,7 @@
    - `preview.html`, with the images in place;
    - `insertion_map.md`: each image's placeholder and file, to attach when uploading.
 
-   Tell the user what the build says the LMS rules leave out (colours, click-to-reveal). If the rules are the DRAFT ones, say so; the LMS team's rules go in the Configuration Pack.
+   Tell the user what the build says the LMS rules leave out (such as click-to-reveal), and which rules it used.
 2. Offer `preview.html` and the images, and ask the Content Lead to approve or request changes. A change means editing the JSON in `cheatsheet/cheatsheet.json`, resubmitting it and rebuilding.
 3. When approved: `fz.py gate <bundle> 3 <file>` with `"deliverable": "cheatsheet"` (`fz.py schema gate3`). Every image must be generated first.
 

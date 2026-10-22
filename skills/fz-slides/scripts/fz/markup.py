@@ -34,13 +34,15 @@ def _marks(text: str) -> str:
     return LINK.sub(lambda m: f'<a href="{html.escape(m.group(2))}">{m.group(1)}</a>', out)
 
 
-def render(text: str, policy: dict) -> str:
-    """A whole field of marked text as block HTML (paragraphs, lists, tables, code blocks)."""
+def render(text: str, policy: dict, context: str = None) -> str:
+    """A whole field of marked text as block HTML (paragraphs, lists, tables, code blocks), in the form the
+    policy's context keeps."""
     text = str(text).replace("\r\n", "\n")
+    rules = lmspolicy.context(policy, context) if context else None
     out, pos = [], 0
     for m in FENCE.finditer(text):
         out += _blocks(text[pos:m.start()])
-        out.append(lmspolicy.code_block(policy, html.escape(m.group(2), quote=False), m.group(1)))
+        out.append(lmspolicy.code_block(policy, html.escape(m.group(2), quote=False), m.group(1), rules))
         pos = m.end()
     out += _blocks(text[pos:])
     return "".join(out)

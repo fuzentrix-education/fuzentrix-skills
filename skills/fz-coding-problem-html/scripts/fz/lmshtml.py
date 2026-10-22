@@ -162,11 +162,13 @@ def verify(data: dict) -> dict:
 # --- rendering ------------------------------------------------------------------------------
 
 def render(data: dict, policy: dict) -> str:
+    rules = lmspolicy.context(policy, CONTEXT)
+
     def text(t):
-        return markup.render(t, policy)
+        return markup.render(t, policy, CONTEXT)
 
     def code(t, lang=""):
-        return lmspolicy.code_block(policy, html.escape(str(t).strip("\n"), quote=False), lang)
+        return lmspolicy.code_block(policy, html.escape(str(t).strip("\n"), quote=False), lang, rules)
 
     def complexity(c):
         return "<ul>" + "".join(f"<li><strong>{html.escape(k.title())}:</strong> {markup.inline(v)}</li>" for k, v in c.items()) + "</ul>"

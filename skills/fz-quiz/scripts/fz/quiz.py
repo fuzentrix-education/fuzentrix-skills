@@ -187,7 +187,7 @@ def _html_problems(bundle, questions: list) -> list:
                        (f"option {LETTERS[i] if i < 4 else i + 1} explanation", o.get("explanation"), "quiz_explanation")]
         for label, text, context in fields:
             if isinstance(text, str) and text.strip():
-                problems += [f"{q['id']} {label}: {p}" for p in lmspolicy.check(markup.render(text, policy), policy, context)]
+                problems += [f"{q['id']} {label}: {p}" for p in lmspolicy.check(markup.render(text, policy, context), policy, context)]
     return problems
 
 

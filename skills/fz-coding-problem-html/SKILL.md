@@ -19,7 +19,7 @@ Every file is built by `scripts/fz.py` in this skill's folder: `python <skill fo
    - List in `skipped_lines` any line that is only a heading (such as the problem's title line). Labels like "Input Format:" or "Example 1:" need no listing.
    - Give `title` (it names the file) and the solution's `language`.
 4. **Build:** `fz.py coding-html build <file> <problem file> <work>/lms`. Add `--run` when the problem includes a Python solution: it runs it on the given examples and test cases and reports anything that fails. Tell the user what it reports; never change the content to make it pass.
-   Use the user's LMS rules when they attach their Configuration Pack (`--config <pack zip>`); otherwise the DRAFT rules are used, and the output says so.
+   Use the user's LMS rules when they attach their Configuration Pack (`--config <pack zip>`); otherwise the skill's copy of the LMS rules is used, and the output says which.
 5. Reply with the HTML from the built file, ready to paste, plus the file for download. If the problem has images, remind the user to attach them when uploading.
 
 **Done when:** the build succeeds.

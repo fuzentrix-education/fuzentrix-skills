@@ -23,7 +23,10 @@ def load(bundle=None) -> dict:
         path = Path(bundle.root) / "_config_snapshot" / "policy" / "lms-html.yaml"
         if path.exists():
             return completed(kits.load_yaml(path.read_text(encoding="utf-8")), f"Configuration Pack {bundle.manifest.get('config', {}).get('version')}")
-    return dict(_draft(), _source="DRAFT policy (skill default)")
+    draft = _draft()
+    status = str(draft.get("status", "draft"))
+    label = "DRAFT policy (skill default)" if status == "draft" else f"the skill's copy of the LMS rules, {status}"
+    return dict(draft, _source=label)
 
 
 def _draft() -> dict:
@@ -54,22 +57,53 @@ def context(policy: dict, name: str) -> dict:
     rules.setdefault("attributes", {})
     rules.setdefault("classes", {})
     rules.setdefault("style", [])
+    rules.setdefault("values", {})
     rules.setdefault("protocols", ["http", "https"])
     return rules
+
+
+def style_props(rules: dict, tag: str) -> list:
+    """The style properties the LMS keeps on this tag ('*' = any). 'style' is a list for every tag, or per tag."""
+    style = rules.get("style") or []
+    if isinstance(style, dict):
+        return list(style.get(tag) or []) + list(style.get("*") or [])
+    return list(style)
+
+
+def attr_allowed(rules: dict, tag: str, attr: str) -> bool:
+    a = rules.get("attributes") or {}
+    return attr in (a.get(tag) or []) or attr in (a.get("*") or [])
+
+
+def protocols(rules: dict, attr: str) -> list:
+    p = rules.get("protocols") or []
+    return list(p.get(attr) or []) if isinstance(p, dict) else list(p)
 
 
 def allows(policy: dict, name: str, tag: str) -> bool:
     return tag in context(policy, name)["tags"]
 
 
-def placeholder(policy: dict, image_id: str) -> str:
-    return (policy.get("images") or {}).get("placeholder", "{{FZ_IMAGE:{id}}}").replace("{id}", image_id)
+def placeholder(policy: dict, image_id: str, file: str = "") -> str:
+    """What an image's src holds until the image is uploaded to the LMS."""
+    images = policy.get("images") or {}
+    template = images.get("src") or images.get("placeholder") or "{{FZ_IMAGE:{id}}}"
+    return template.replace("{id}", image_id).replace("{file}", file or f"{image_id}.png")
 
 
-def code_block(policy: dict, code_html: str, language: str = "") -> str:
+def code_form(policy: dict, rules: dict = None) -> str:
+    """'language_class' (<pre><code class="language-…">) or 'bare' (<pre><code>): the policy's form, made bare
+    wherever the context doesn't keep a class on <code>."""
+    form = (policy.get("code") or {}).get("block", "language_class")
+    if rules is not None and not attr_allowed(rules, "code", "class"):
+        return "bare"
+    return form
+
+
+def code_block(policy: dict, code_html: str, language: str = "", rules: dict = None) -> str:
     """A code block in the policy's canonical form. code_html is already escaped."""
     c = policy.get("code") or {}
-    if c.get("block", "language_class") == "bare":
+    if code_form(policy, rules) == "bare":
         return f"<pre><code>{code_html}</code></pre>"
     lang = (language or "").lower()
     if lang not in (c.get("languages") or []):
@@ -83,8 +117,11 @@ class _Checker(HTMLParser):
         self.policy, self.rules = policy, rules
         self.problems, self.stack, self.text = [], [], []
         self.pre_children = []  # per open <pre>: [tags directly inside, has stray text]
-        ph = (policy.get("images") or {}).get("placeholder", "{{FZ_IMAGE:{id}}}")
-        self.placeholder = re.compile("^" + re.escape(ph).replace(re.escape("{id}"), r"[A-Za-z0-9_.\-]+") + "$")
+        images = policy.get("images") or {}
+        self.placeholder = None
+        if not images.get("src"):  # an older policy: a placeholder that is not a URL
+            ph = images.get("placeholder", "{{FZ_IMAGE:{id}}}")
+            self.placeholder = re.compile("^" + re.escape(ph).replace(re.escape("{id}"), r"[A-Za-z0-9_.\-]+") + "$")
 
     def _problem(self, text):
         if text not in self.problems:
@@ -94,10 +131,10 @@ class _Checker(HTMLParser):
         r = self.rules
         if tag not in r["tags"]:
             self._problem(f"<{tag}> is not allowed here (the LMS removes it). Allowed: {', '.join(r['tags'])}.")
-        allowed = set(r["attributes"].get(tag, [])) | set(r["attributes"].get("*", []))
+        values = r["values"]
         for name, value in attrs:
             value = value or ""
-            if name not in allowed:
+            if not attr_allowed(r, tag, name):
                 self._problem(f"<{tag} {name}=…> is not allowed here.")
                 continue
             if name == "class":
@@ -106,18 +143,26 @@ class _Checker(HTMLParser):
                     if not any(fnmatch.fnmatch(token, p) for p in patterns):
                         self._problem(f"class '{token}' on <{tag}> is not allowed here.")
             elif name == "style":
+                props = style_props(r, tag)
                 for decl in filter(None, (d.strip() for d in value.split(";"))):
-                    prop = decl.split(":", 1)[0].strip().lower()
-                    if prop not in r["style"]:
-                        self._problem(f"style property '{prop}' is not allowed here (allowed: {', '.join(r['style']) or 'none'}).")
-            elif name == "href":
+                    prop, _, val = (x.strip().lower() for x in decl.partition(":"))
+                    if "*" not in props and prop not in props:
+                        self._problem(f"style property '{prop}' on <{tag}> is not allowed here (allowed: {', '.join(props) or 'none'}).")
+                    elif prop in values and val not in values[prop]:
+                        self._problem(f"{prop}: {val} on <{tag}> is not allowed (allowed: {', '.join(values[prop])}).")
+            elif name in ("href", "src") and not (tag == "img" and self.placeholder):
                 scheme = value.split(":", 1)[0].lower() if ":" in value else ""
-                if scheme not in r["protocols"]:
-                    self._problem(f"link '{value}' must start with {' or '.join(p + '://' for p in r['protocols'])}.")
-            elif tag == "img" and name == "src":
-                if not self.placeholder.match(value):
-                    self._problem(f"image src '{value}' must be an image placeholder like "
-                                  f"{placeholder(self.policy, 'cs-01')} (the image is attached when uploading).")
+                allowed_schemes = protocols(r, name)
+                if scheme not in allowed_schemes:
+                    self._problem(f"{name} '{value}' must start with {' or '.join(p + ':' for p in allowed_schemes)}.")
+            elif tag == "img" and name == "src" and not self.placeholder.match(value):
+                self._problem(f"image src '{value}' must be an image placeholder like "
+                              f"{placeholder(self.policy, 'cs-01')} (the image is attached when uploading).")
+            elif name in values:
+                tokens = value.split() if name == "rel" else [value]
+                bad = [t for t in tokens if t not in values[name]]
+                if bad:
+                    self._problem(f"{name}=\"{value}\" on <{tag}> is not allowed (allowed: {', '.join(values[name])}).")
         if tag == "img":
             self.text.append("[image]")  # an image is content too
         if tag == "img" and not dict(attrs).get("alt", "").strip():
@@ -154,7 +199,7 @@ class _Checker(HTMLParser):
             return
         c = self.policy.get("code") or {}
         cls = children[0][1].get("class", "")
-        if c.get("block", "language_class") == "language_class":
+        if code_form(self.policy, self.rules) == "language_class":
             m = re.fullmatch(r"language-([a-z0-9+#-]+)", cls or "")
             if not m or m.group(1) not in (c.get("languages") or []):
                 self._problem(f"a code block needs class=\"language-…\" with one of: {', '.join(c.get('languages') or [])}.")
@@ -201,15 +246,22 @@ def check_policy(value) -> list:
                 problems.append(f"contexts.{name} extends '{rules['extends']}', which is not a context.")
         elif not isinstance(rules.get("tags"), list) or not rules["tags"]:
             problems.append(f"contexts.{name} needs 'tags': the tags the LMS keeps.")
-        for key in ("style", "protocols", "remove"):
-            if key in rules and not isinstance(rules[key], list):
-                problems.append(f"contexts.{name}.{key} must be a list.")
+        for key in ("style", "protocols"):
+            if key in rules and not isinstance(rules[key], (list, dict)):
+                problems.append(f"contexts.{name}.{key} must be a list, or a mapping per tag (style) or per attribute (protocols).")
+        if "remove" in rules and not isinstance(rules["remove"], list):
+            problems.append(f"contexts.{name}.remove must be a list.")
+        if "values" in rules and not isinstance(rules["values"], dict):
+            problems.append(f"contexts.{name}.values must map an attribute or style property to its allowed values.")
         if "max_bytes" in rules and not isinstance(rules["max_bytes"], int):
             problems.append(f"contexts.{name}.max_bytes must be a whole number.")
     missing = [c for c in CONTEXTS if c not in value["contexts"]]
     if missing:
         problems.append(f"contexts must include {', '.join(missing)}.")
-    ph = (value.get("images") or {}).get("placeholder", "{{FZ_IMAGE:{id}}}")
-    if "{id}" not in ph:
+    images = value.get("images") or {}
+    if images.get("src"):
+        if "{file}" not in images["src"] and "{id}" not in images["src"]:
+            problems.append("images.src must contain {file} (or {id}), where each image's name goes.")
+    elif "{id}" not in images.get("placeholder", "{{FZ_IMAGE:{id}}}"):
         problems.append("images.placeholder must contain {id}, where each image's id goes.")
     return problems

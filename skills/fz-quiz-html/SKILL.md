@@ -15,7 +15,7 @@ Every file is built by `scripts/fz.py` in this skill's folder: `python <skill fo
 
 ## Steps
 
-1. **Get the workbook** the user attached (`.xlsx`). Use the LMS rules from their Configuration Pack when they attach it (`--config <pack zip>`) or from a Topic Bundle (`--bundle <bundle>`); otherwise the skill's DRAFT rules are used, and the output says so.
+1. **Get the workbook** the user attached (`.xlsx`). Use the LMS rules from their Configuration Pack when they attach it (`--config <pack zip>`) or from a Topic Bundle (`--bundle <bundle>`); otherwise the skill's copy of the LMS rules is used, and the output says which.
 2. **Workbook from Fuzentrix Quiz:** go to step 4.
 3. **Any other workbook:** mark the code the way a teacher would, so nothing is guessed:
    1. `fz.py quiz-cells <workbook> <file>` lists every question, option and explanation cell.

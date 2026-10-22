@@ -185,6 +185,7 @@ def cmd_build(args) -> None:
         bundle.save()
         tid = bundle.manifest["topic"]["id"]
         look = {"style": "in Brand Kit colours (inline styles the LMS keeps)",
+                "span": "in Brand Kit colours on headings, labels and code blocks (the LMS keeps colour on <span> and <pre> only)",
                 "class": f"with fz-* classes; give cheatsheet/{tid}_theme.css to the LMS team to install once",
                 "structure": "as structure and icons only: these LMS rules keep no colours (no style or fz-* classes)"}[result["mode"]]
         print(f"Built cheatsheet/{tid}_cheatsheet.html, preview.html and insertion_map.md: {result['sections']} section(s), "

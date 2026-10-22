@@ -162,7 +162,7 @@ def convert(source, target, policy: dict, marks: dict = None, plain=None) -> dic
                 else:
                     source_text = auto_mark(text)
                     counts["guessed"] += source_text != text
-                html_ = text.strip() if source_text is None else markup.render(source_text, policy)
+                html_ = text.strip() if source_text is None else markup.render(source_text, policy, field)
                 found = lmspolicy.check(html_, policy, field)
                 if found:
                     problems += [f"{ref} ({field.replace('quiz_', '')}): {p}" for p in found]
