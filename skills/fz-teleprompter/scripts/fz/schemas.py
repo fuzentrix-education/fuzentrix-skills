@@ -200,41 +200,44 @@ Submit with: fz.py submit <bundle> cheatsheet <file>
 - title, intro (one or two plain sentences), quick_revision (the few lines to remember).
 - sections: heading, source (video + segments it summarises), blocks. Block types:
   paragraph {text} · bullets {items} · table {columns, rows} · code {code, language} · key_idea {text}
-  example {title, text} · mistakes {items} · image {file, alt, caption} · reveal {question, answer} (click to reveal)
-- Text may use **bold** and `code`.
-- Images: save each generated image into cheatsheet/images/ first; alt text describes it in a few words.
+  example {title, text} · mistakes {items} · image {id, alt, caption, prompt} · reveal {question, answer}
+  (click to reveal where the LMS keeps it; otherwise shown as a question and its answer)
+- Text may use **bold** and `code` (Fuzentrix markup).
+- Images: id is short lowercase words joined by hyphens; prompt says what the image shows; alt text describes it
+  in a few words. The HTML holds a placeholder; generate the image afterwards from
+  `fz.py show <bundle> cheatsheet-image-prompts`.
 - Cover every key term listed in key_terms_to_cover. Include at least one mistakes block.
 - Voice: short, concrete sentences with the Instructor's own examples; state facts directly, no filler.""",
         {"title": "Introduction to DBMS", "intro": "Data, information, databases and the DBMS that manages them.",
          "sections": [{"heading": "DBMS: the bridge", "source": [{"video": "dbms-p2-t1-v1", "segments": ["S10"]}],
                        "blocks": [
                            {"type": "paragraph", "text": "You never talk to the database directly: the **DBMS** sits in between."},
-                           {"type": "image", "file": "dbms-bridge.png", "alt": "User sends a request to the DBMS, which searches the database",
-                            "caption": "Request → search → result."},
+                           {"type": "image", "id": "dbms-bridge", "alt": "User sends a request to the DBMS, which searches the database",
+                            "caption": "Request → search → result.", "prompt": "A student, a DBMS box and a database cylinder, joined by arrows"},
                            {"type": "mistakes", "items": ["Thinking the app reads the database files itself."]},
                            {"type": "reveal", "question": "What does the DBMS return?", "answer": "The exact result: your marks, not the whole table."}]}],
          "quick_revision": ["DBMS = software to create, store, retrieve, update and delete data"]},
     ),
-    "lms-html": (
-        """A coding problem's LMS content. Build with: fz.py lms-html <file> <out folder>
-- title. requested: ONLY the sections the user asked for, from:
-  problem_statement, solution, test_cases, test_case_explanation, hints, editorial.
-  Fill exactly those sections; leave every other section out.
-- problem_statement: description, input_format, output_format, constraints (list), examples (input, output, explanation).
-- solution: language, code, approach, complexity {time, space}.
-- test_cases: list of {input, output} (exact stdin and stdout).
-- test_case_explanation: list of {case, explanation}.
-- hints: list, from gentle to specific.
-- editorial: intuition, approach, steps (list), optional code, complexity.
-- check_solution (optional, never shown): {language: "python", code}. Include it whenever examples or test cases
-  exist and the solution was not requested; the builder runs it on every example and test case.
-Use `backticks` for code inside text. Keep the user's requirements, examples and constraints exactly.""",
-        {"title": "Reverse a String", "requested": ["problem_statement", "test_cases"],
+    "coding-html": (
+        """A GIVEN coding problem, placed into LMS sections word for word. Start from:
+fz.py coding-html draft <problem file> <file>  (the problem as numbered lines). Build with:
+fz.py coding-html build <file> <problem file> <out folder> [--run]
+- title: names the file.
+- Fill only the sections the problem has, with its exact words (you may add `code` and **bold** marks):
+  problem_statement: description, input_format, output_format, constraints (list), examples (input, output, explanation).
+  solution: language, code, approach, complexity {time, space}.
+  test_cases: list of {input, output}. test_case_explanation: list of {case, explanation}.
+  hints: list. editorial: intuition, approach, steps (list), code, language, complexity.
+- sections (optional): only these, when the user asked for some sections.
+- skipped_lines: line ids that are only a heading or label (e.g. the problem's title line). Lines such as
+  "Input Format:" or "Example 1:" are recognised as labels without being listed.
+Every field must be in the problem; every line of the problem must be in a section or skipped. Write nothing new.""",
+        {"title": "Reverse a String",
          "problem_statement": {"description": "Given a string `s`, print it reversed.", "input_format": "One line containing `s`.",
                                "output_format": "The reversed string.", "constraints": ["1 <= len(s) <= 1000"],
                                "examples": [{"input": "Durga", "output": "agruD", "explanation": "The characters in reverse order."}]},
-         "test_cases": [{"input": "abc", "output": "cba"}],
-         "check_solution": {"language": "python", "code": "s = input().strip()\nprint(s[::-1])"}},
+         "solution": {"language": "python", "code": "s = input().strip()\nprint(s[::-1])"},
+         "skipped_lines": ["L1"]},
     ),
     "diagrams": (
         """Diagram specs for the diagram Visual Events. Start from: fz.py draft <bundle> diagrams all <file>
@@ -244,12 +247,49 @@ Each diagram: event (its id), optional title, and a type:
 - table: columns (1–6), rows (1–8, each with one cell per column).
 - tree: root, children (1–6).
 - compare: left {title, items}, right {title, items} (1–6 items each).
+- flowchart: nodes (2–12: id, label, shape process | decision | terminal | io), edges (from, to, optional label
+  such as yes/no). Drawn top to bottom; an edge back to an earlier node is drawn round the side as a loop.
+- timeline: events (2–7: when, label). cycle: steps (3–6), each leading to the next and the last back to the first.
+- layers: layers (2–7, top to bottom), optional highlight (layer number). list: items (1–7), numbered (true/false).
+- stat: value (e.g. "70%"), label. title: heading, optional subtitle (a title card; leave out 'title').
+- code: code (1–14 lines), language. array: values (2–10), optional pointers [{index, label}].
 - image: prompt. Only when none of the above can show it; the image model then makes it (`fz.py show <bundle> image-prompts`).
 Labels must be short: a few words that fit a box at a readable size. Use the exact terms the Instructor uses.""",
         {"diagrams": [
             {"event": "S10-E1", "type": "flow", "title": "How a DBMS answers", "steps": ["You", "DBMS", "Database"], "labels": ["request", "search"]},
             {"event": "S13-E1", "type": "tree", "title": "4 types of DBMS", "root": "DBMS",
              "children": ["Hierarchical", "Network", "Relational", "Object-Oriented"]}]},
+    ),
+    "animations": (
+        """Animation specs for the animation Visual Events. Start from: fz.py draft <bundle> animations all <file>
+Submit with: fz.py submit <bundle> animations <file>. The build draws each into the Editor Kit: a transparent
+full-frame layer per element, a frame per step, a storyboard, a step sheet and spec.json.
+Each animation: event (its id), template, and steps (1–8, in order).
+- templates code draws, and the diagram type each needs (as in `fz.py schema diagrams`): flow → flow,
+  flowchart → flowchart, table_build → table, tree_graph → tree, compare_split → compare, timeline → timeline,
+  cycle → cycle, layers → layers, list_build / agenda_build → list, code_typing → code, stat_callout → stat,
+  title_card → title, array_pointer → array. Give diagram: that spec. Each step's show lists the element ids it
+  adds; every element appears in exactly one step. Ids: title (if the diagram has one); flow node:1…, edge:1-2…,
+  label:1-2…; flowchart node:<id>, edge:<from>-<to>, label:<from>-<to>; table frame, header, row:1…; tree
+  node:root, node:1…, edge:root-1…; compare panel:left, panel:right, item:left-1…, item:right-1…; timeline axis,
+  event:1…; cycle node:1…, edge:1-2…; layers layer:1…; list item:1…; stat value, label; title heading, subtitle;
+  code card, line:1…; array cell:1…, pointer:<label>.
+- template character_scene / concept_reveal / transform_morph: an illustrated scene. Give elements (1–10, back to
+  front), each with id (lowercase-hyphenated) and kind: ai {describe, place, optional character (a Brand Kit
+  character id)}; text {text, place}; arrow {from [x, y], to [x, y]}. place is [x, y, width, height] on the
+  1920×1080 frame, clear of the presenter area. Steps show element ids. Then generate each ai element from
+  `fz.py show <bundle> animation-prompts`.
+- template custom: nothing code can draw. Each step gives describe: what appears.
+- trigger (optional, per step): the exact spoken words at which the step appears, in the order they are said.
+  Steps without one are spread evenly over the animation.""",
+        {"animations": [
+            {"event": "S10-E1", "template": "flow",
+             "diagram": {"type": "flow", "steps": ["You", "DBMS", "Database"], "labels": ["request", "search"]},
+             "steps": [{"show": ["node:1"], "trigger": "Meeru"},
+                       {"show": ["node:2", "edge:1-2", "label:1-2"], "trigger": "request pampistaru"},
+                       {"show": ["node:3", "edge:2-3", "label:2-3"], "trigger": "database lo vetukuthundi"}]},
+            {"event": "S12-E1", "template": "custom",
+             "steps": [{"describe": "A bank vault door swings open", "trigger": "IMS"}, {"describe": "Rows of records glow one by one"}]}]},
     ),
 }
 

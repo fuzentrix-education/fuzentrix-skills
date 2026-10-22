@@ -1,0 +1,4 @@
+interface:
+  display_name: "Fuzentrix Quiz HTML"
+  short_description: "Turn a quiz workbook into LMS RICH_HTML"
+  default_prompt: "Use $fz-quiz-html to convert this quiz workbook to RICH_HTML for the LMS."

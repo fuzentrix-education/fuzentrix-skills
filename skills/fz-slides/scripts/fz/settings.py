@@ -9,16 +9,12 @@ SETTINGS = {
     "line_length_words": ("teleprompter.yaml", 8),
     "words_per_minute": ("teleprompter.yaml", 140),
     "teleprompter_symbols": ("teleprompter.yaml", {"➔": "...", "→": "...", "✔": "", "✓": "", "•": ""}),
-    "brand": ("brand.yaml", {}),
-    "illustration_style": ("brand.yaml", ""),
-    "cheatsheet_html": ("cheatsheet.yaml", "semantic"),
     "cheatsheet_banned_phrases": ("cheatsheet.yaml", []),
     "cheatsheet_require_mistakes": ("cheatsheet.yaml", True),
-    "cheatsheet_image_base_url": ("cheatsheet.yaml", "images/"),
 }
 # settings whose policy key differs from the setting name
-POLICY_KEYS = {"brand": "slides", "teleprompter_symbols": "symbols", "cheatsheet_html": "html_mode", "cheatsheet_banned_phrases": "banned_phrases",
-               "cheatsheet_require_mistakes": "require_mistakes", "cheatsheet_image_base_url": "image_base_url"}
+POLICY_KEYS = {"teleprompter_symbols": "symbols", "cheatsheet_banned_phrases": "banned_phrases",
+               "cheatsheet_require_mistakes": "require_mistakes"}
 
 
 def get(bundle, key: str):

@@ -1,7 +1,9 @@
-"""fz-quiz: a Quiz for a Topic, in the LMS Quiz Template.
+"""fz-quiz: a Quiz for a Topic, as an Excel workbook in the LMS Quiz Template.
 
 The user's choices become a Quiz Request; the builder plans the question slots (type, difficulty,
 points, Video) so the Host App only writes each question, and every LMS import rule is checked in code.
+Cells keep their Fuzentrix markup (`code`, ``` blocks, **bold**), so fz-quiz-html can turn them into the
+LMS's RICH_HTML without guessing; every field is checked against its LMS HTML context when submitted.
 """
 from __future__ import annotations
 
@@ -164,12 +166,29 @@ def submit_questions(bundle, data: dict) -> str:
             if key and (key in seen or key in others):
                 problems.append(f"{q['id']} repeats {seen.get(key) or others[key]}.")
             seen[key] = q["id"]
+    problems += _html_problems(bundle, [q for q in questions if q.get("id") in slots])
     if problems:
         raise Rejected(problems)
     write_json(bundle.path("quiz", "questions", f"{vid}.json"), data)
     bundle.manifest["stages"]["quiz"] = {"status": "in_progress"}
     bundle.manifest["gates"].get("3", {}).pop("quiz", None)
     return vid
+
+
+def _html_problems(bundle, questions: list) -> list:
+    """Each field, as fz-quiz-html will write it, against its LMS HTML context: found now, not at upload."""
+    from . import lmspolicy, markup
+
+    policy, problems = lmspolicy.load(bundle), []
+    for q in questions:
+        fields = [("question", q.get("question"), "quiz_question")]
+        for i, o in enumerate(q.get("options") or []):
+            fields += [(f"option {LETTERS[i] if i < 4 else i + 1}", o.get("text"), "quiz_option"),
+                       (f"option {LETTERS[i] if i < 4 else i + 1} explanation", o.get("explanation"), "quiz_explanation")]
+        for label, text, context in fields:
+            if isinstance(text, str) and text.strip():
+                problems += [f"{q['id']} {label}: {p}" for p in lmspolicy.check(markup.render(text, policy), policy, context)]
+    return problems
 
 
 def _check_question(q: dict, slot: dict, request: dict, segments: set, vid: str) -> list:
@@ -219,39 +238,23 @@ def _check_question(q: dict, slot: dict, request: dict, segments: set, vid: str)
     return problems
 
 
-# --- building the LMS workbooks ---------------------------------------------------------
+# --- building the LMS workbook ----------------------------------------------------------
 
-import html as _html  # noqa: E402
 from copy import copy as _copy  # noqa: E402
 from pathlib import Path as _Path  # noqa: E402
 
 TEMPLATE = _Path(__file__).parent / "assets" / "lms_quiz_template.xlsx"
-_FENCED = re.compile(r"```[A-Za-z0-9_+.-]*\n?(.*?)```", re.S)
-_INLINE = re.compile(r"`([^`\n]+)`")
-
-
-def to_html(text: str) -> str:
-    """Semantic LMS HTML: <p> paragraphs, <code> for `backticks`, <pre><code> for ``` blocks. No div/class/style."""
-    out, last = [], 0
-    for m in _FENCED.finditer(text):
-        out += _paragraphs(text[last:m.start()])
-        out.append(f"<pre><code>{_html.escape(m.group(1).strip(chr(10)), quote=False)}</code></pre>")
-        last = m.end()
-    out += _paragraphs(text[last:])
-    return "".join(out)
-
-
-def _paragraphs(text: str) -> list:
-    out = []
-    for para in re.split(r"\n\s*\n", text.strip()):
-        if para.strip():
-            lines = [_INLINE.sub(lambda m: f"<code>{m.group(1)}</code>", _html.escape(l.strip(), quote=False)) for l in para.splitlines()]
-            out.append("<p>" + "<br>".join(lines) + "</p>")
-    return out
 
 
 def to_plain(text: str) -> str:
-    return _INLINE.sub(r"\1", _FENCED.sub(lambda m: m.group(1).strip("\n"), text)).strip()
+    from .markup import unmark
+
+    return unmark(text)
+
+
+def has_markup(questions: list) -> bool:
+    texts = [q["question"] for q in questions] + [t for q in questions for o in q["options"] for t in (o["text"], o.get("explanation") or "")]
+    return any("`" in t or "**" in t for t in texts)
 
 
 def _arranged(bundle) -> list:
@@ -298,29 +301,37 @@ def lms_problems(questions: list) -> list:
     return problems
 
 
-def _write_workbook(path, questions: list, rich: bool) -> None:
+def template(bundle):
+    """The LMS Quiz Template: the Configuration Pack's copy when it has one, else the skill's."""
+    pack = bundle.path("_config_snapshot", "templates", "lms_quiz_template.xlsx")
+    return pack if pack.exists() else TEMPLATE
+
+
+def _write_workbook(path, questions: list, template_path=TEMPLATE) -> None:
+    """The LMS Quiz Template filled in, cells in Fuzentrix markup, marked as ours for fz-quiz-html."""
     from openpyxl import load_workbook
 
-    wb = load_workbook(TEMPLATE)
+    from .quizhtml import MARKER
+
+    wb = load_workbook(template_path)
     ws = wb["Quiz Questions"]
     col = {c.value: c.column for c in ws[1]}
     proto = {c.column: c for c in ws[2]}
     height = ws.row_dimensions[2].height
-    fmt = to_html if rich else to_plain
     for r, q in enumerate(questions, 2):
-        values = {"Question": fmt(q["question"]), "Question Type": q["type"], "Points": q["points"],
-                  "Content Format": "RICH_HTML" if rich else "PLAIN_TEXT"}
+        values = {"Question": q["question"], "Question Type": q["type"], "Points": q["points"], "Content Format": "PLAIN_TEXT"}
         for i, o in enumerate(q["options"]):
             letter = LETTERS[i]
-            values[f"Option {letter}"] = fmt(o["text"])
+            values[f"Option {letter}"] = o["text"]
             values[f"Option {letter} Correct"] = "TRUE" if o["correct"] else "FALSE"
             if str(o.get("explanation", "")).strip():
-                values[f"Option {letter} Explanation"] = fmt(o["explanation"])
+                values[f"Option {letter} Explanation"] = o["explanation"]
         for header, c in col.items():
             cell = ws.cell(r, c)
             cell._style = _copy(proto[c]._style)
             cell.value = values.get(header)
         ws.row_dimensions[r].height = height
+    wb.properties.keywords = MARKER
     _Path(path).parent.mkdir(parents=True, exist_ok=True)
     wb.save(path)
 
@@ -338,10 +349,9 @@ def build(bundle) -> dict:
     if problems:
         raise Rejected(problems)
     tid = bundle.manifest["topic"]["id"]
-    _write_workbook(bundle.path("quiz", f"{tid}_quiz.xlsx"), questions, rich=False)
-    _write_workbook(bundle.path("quiz", f"{tid}_quiz_html.xlsx"), questions, rich=True)
+    _write_workbook(bundle.path("quiz", f"{tid}_quiz.xlsx"), questions, template(bundle))
     views.write_pair(bundle.path("quiz", "quiz_preview"), _preview(bundle, questions), title=f"Quiz: {bundle.manifest['topic']['title'] or tid}")
-    bundle.manifest["stages"]["quiz"] = {"status": "built", "questions": len(questions)}
+    bundle.manifest["stages"]["quiz"] = {"status": "built", "questions": len(questions), "markup": has_markup(questions)}
     bundle.manifest["gates"].get("3", {}).pop("quiz", None)
     bundle.log("quiz built")
     return {"questions": len(questions), "points": sum(q["points"] for q in questions)}
@@ -369,51 +379,3 @@ def _preview(bundle, questions: list) -> str:
                 out.append(f"- _Explanation ({LETTERS[i]}):_ {to_plain(o['explanation'])}")
         out.append("")
     return "\n".join(out) + "\n"
-
-
-def convert_workbook(source, target) -> dict:
-    """Convert an existing LMS quiz workbook to RICH_HTML: question, option and option-explanation cells
-    become semantic HTML in place; every question row's Content Format becomes RICH_HTML. Nothing else changes."""
-    from openpyxl import load_workbook
-
-    source, target = _Path(source), _Path(target)
-    if source.resolve() == target.resolve():
-        raise Rejected("Write the converted workbook to a new file; the original stays unchanged.")
-    try:
-        wb = load_workbook(source)
-    except Exception as e:
-        raise Rejected(f"{source.name} is not a readable .xlsx workbook ({e.__class__.__name__}).")
-    sheets, cells, rows = 0, 0, 0
-    for ws in wb.worksheets:
-        header_row = next((r for r in range(1, min(ws.max_row, 25) + 1)
-                           if {"question", "content format"} <= {str(c.value).strip().lower() for c in ws[r] if c.value}), None)
-        if header_row is None:
-            continue
-        sheets += 1
-        kinds = {}
-        for c in ws[header_row]:
-            h = " ".join(str(c.value or "").split()).lower()
-            if h == "content format":
-                kinds[c.column] = "format"
-            elif h in ("question", "questions", "question text", "problem", "problem statement"):
-                kinds[c.column] = "content"
-            elif h.startswith("option") and ("explanation" in h or re.fullmatch(r"option [a-z0-9]+", h)):
-                kinds[c.column] = "content"
-        qcol = next(c for c, k in kinds.items() if k == "content")
-        fcol = next(c for c, k in kinds.items() if k == "format")
-        for r in range(header_row + 1, ws.max_row + 1):
-            if not str(ws.cell(r, qcol).value or "").strip():
-                continue
-            rows += 1
-            for c, kind in kinds.items():
-                cell = ws.cell(r, c)
-                if kind == "content" and isinstance(cell.value, str) and cell.value.strip() and not cell.value.startswith("="):
-                    if not re.match(r"^\s*<(p|pre|ul|ol|table)\b", cell.value, re.I):
-                        cell.value = to_html(cell.value)
-                        cells += 1
-            ws.cell(r, fcol).value = "RICH_HTML"
-    if not sheets:
-        raise Rejected(f"{source.name} has no sheet with 'Question' and 'Content Format' columns.")
-    target.parent.mkdir(parents=True, exist_ok=True)
-    wb.save(target)
-    return {"sheets": sheets, "rows": rows, "cells": cells}

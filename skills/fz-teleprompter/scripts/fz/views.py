@@ -131,6 +131,14 @@ def master_markdown(bundle, master: dict) -> str:
 
 # --- Markdown → HTML for the subset these views use ------------------------------
 
+def gallery_page(title: str, body: str) -> str:
+    """A review page of images (internal, so in the report style, not the brand)."""
+    return ("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>" + html.escape(title) + "</title><style>"
+            "body{font-family:system-ui,sans-serif;margin:2rem;color:#13213c}figure{display:inline-block;width:46%;margin:1%;vertical-align:top}"
+            "img{width:100%;border:1px solid #dce7f4;border-radius:8px;background:#fff}figcaption{font-size:14px;margin-top:.4rem}</style></head>"
+            f"<body><h1>{html.escape(title)}</h1>{body}</body></html>\n")
+
+
 def write_pair(stem: Path, markdown: str, title: str) -> None:
     stem = Path(stem)
     stem.parent.mkdir(parents=True, exist_ok=True)

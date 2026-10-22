@@ -123,6 +123,12 @@ def record_gate3(bundle, data: dict) -> dict:
         raise Rejected(f"Build the {deliverable} first (`fz.py build <bundle> {deliverable}`); Gate 3 approves it.")
     if not str(data.get("approver", "")).strip():
         raise Rejected("'approver' must name the Content Lead.")
+    if deliverable == "cheatsheet":
+        from .cheatsheet import image_file, missing_images
+        missing = missing_images(bundle)
+        if missing:
+            raise Rejected([f"{image_file(bundle, b['id']).name} is not generated yet; the Content Lead approves the cheatsheet with its images "
+                            "(`fz.py show <bundle> cheatsheet-image-prompts`)." for b in missing])
     record = {"approver": data["approver"], "at": now(), "notes": data.get("notes", "")}
     bundle.manifest["gates"].setdefault("3", {})[deliverable] = record
     bundle.log(f"gate 3 ({deliverable}) by {record['approver']}")

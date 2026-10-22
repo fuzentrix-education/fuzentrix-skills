@@ -2,7 +2,8 @@
 
 - **Instructor Script**: the Instructor's own free-flow draft for a Video, usually Telugu-English.
 - **Video Bundle**: the folder (zipped for download) holding all work for one Video. Upload it to continue.
-- **Configuration Pack**: the published Fuzentrix settings (video guidelines, teleprompter formatting); a DRAFT bundle uses skill defaults instead.
+- **Configuration Pack**: the published Fuzentrix settings for how we work (video guidelines, teleprompter formatting, the LMS HTML Policy); a DRAFT bundle uses skill defaults instead.
+- **Brand Kit**: the published set of everything about how content looks: slide template and background, colours, fonts, logos, illustration style and characters. Attached as its release zip (or added from Google Drive) and kept in the bundle; the **Default Brand Kit** (the Fuzentrix look) is used when the user has none.
 - **Chunk**: a run of consecutive script lines handled in one turn (C01…). Master Script Chunks (M01…) group whole Segments.
 - **Line Role**: the purpose of a line: spoken, heading, speaker_label, stage_direction, note_to_team, slide_only, duplicate.
 - **Finding**: one problem found by Script Review, quoting its line, with a severity and a suggested fix.
@@ -16,5 +17,9 @@
 - **Trigger Phrase** (`trigger`): the exact spoken words at which a Visual Event starts.
 - **Teleprompter Script**: only the words the Instructor speaks, unchanged from the Final Master Script.
 - **Points to check**: anything the self-check could not resolve, shown first to the person at the Gate.
-- **Editor Pack**: the folder in the Video Bundle (`editor_pack/`) with everything the Video Editor needs: `slides/`, `images/`, `diagrams/`, `storyboards/`, `animations/`, plus the editor guide, Premiere markers and cue sheet. Every file is named `<video-id>_<event-id>_<kind>`, matching its Premiere marker.
+- **Editor Kit**: the folder in the Video Bundle (`editor_kit/`) with everything the Video Editor needs to edit by hand in Premiere: `slides/`, `images/`, `diagrams/`, `animations/`, `brand/`, plus the editor guide, Premiere markers and cue sheet. Every file is named after its Premiere marker (`<video-id>_<event-id>_…`).
+- **Animation Spec**: what an animation shows and when: its template, its content, and its steps (which elements appear at which spoken words). Built into Element Layers, Build States, a storyboard, a Step Sheet and `spec.json` for the motion-animation workflow.
+- **Element Layer**: one part of an animation alone on a full 1920×1080 transparent frame, so layers stacked in Premiere line up.
+- **Build State**: the full frame after each step of an animation.
+- **Step Sheet**: when each step of an animation appears, timed from the narration.
 - **Final Master Script**: the Master Script after Gate 2. Slides, visuals and the teleprompter are built only from it.

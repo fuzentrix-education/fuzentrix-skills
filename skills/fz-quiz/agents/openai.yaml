@@ -1,4 +1,4 @@
 interface:
   display_name: "Fuzentrix Quiz"
-  short_description: "Build and revise validated LMS quizzes"
+  short_description: "Quiz questions for a Topic, in the LMS Excel template"
   default_prompt: "Use $fz-quiz to create a Fuzentrix Quiz from this Topic Bundle."

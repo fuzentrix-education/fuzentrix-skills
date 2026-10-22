@@ -162,7 +162,7 @@ def reopen(bundle) -> None:
     bundle.manifest["stages"]["master"]["status"] = "in_progress"
     if bundle.manifest["gates"].pop("2", None) is not None:
         bundle.log("Gate 2 reopened by a Master Script change")
-    for stage in ("teleprompter", "slides", "visuals", "editor_pack"):
+    for stage in ("teleprompter", "slides", "visuals", "editor_kit"):
         bundle.manifest["stages"].pop(stage, None)
 
 

@@ -37,6 +37,34 @@ def read_script(path) -> list:
     return [p for p in (_clean(p) for p in paragraphs) if _has_content(p["text"])]
 
 
+def read_source(path) -> dict:
+    """A given text (such as a coding problem) line by line, exactly: indentation and lines like '}' are kept,
+    only empty lines are dropped. Returns {"lines": [...], "images": n}; images can't be read as text, so they are
+    counted for attaching at upload. PDFs lose indentation; prefer .docx, .md or .txt for code."""
+    path = Path(path)
+    suffix, images = path.suffix.lower(), 0
+    if suffix in (".txt", ".md"):
+        lines = path.read_text(encoding="utf-8-sig").replace("\t", "    ").splitlines()
+    elif suffix == ".docx":
+        try:
+            with zipfile.ZipFile(path) as z:
+                xml = z.read("word/document.xml")
+        except (zipfile.BadZipFile, KeyError):
+            raise Rejected(f"{path.name} is not a readable .docx file.")
+        root = ElementTree.fromstring(xml)
+        images = sum(1 for _ in root.iter(f"{W}drawing")) + sum(1 for _ in root.iter(f"{W}pict"))
+        lines = [para["text"] for block in root.find(f"{W}body") if block.tag == f"{W}p" for para in _docx_paragraph(block, tab="    ")]
+    elif suffix == ".pdf":
+        try:
+            from pypdf import PdfReader
+            lines = [line for page in PdfReader(str(path)).pages for line in (page.extract_text() or "").split("\n")]
+        except Exception as e:
+            raise Rejected(f"{path.name} is not a readable PDF ({e.__class__.__name__}).")
+    else:
+        raise Rejected(f"Unsupported format '{suffix}'. Use .docx, .md, .txt or .pdf.")
+    return {"lines": [l.rstrip() for l in lines if l.strip()], "images": images}
+
+
 def _has_content(text: str) -> bool:
     """Lines with no letters or digits (separators, a stray '>') carry nothing to say or show."""
     return any(ch.isalnum() for ch in text)
@@ -115,7 +143,7 @@ def _read_docx(path: Path) -> list:
     return out
 
 
-def _docx_paragraph(p) -> list:
+def _docx_paragraph(p, tab: str = " ") -> list:
     """One w:p can hold several visual lines separated by soft breaks (w:br)."""
     pieces = [[]]  # list of (text, bold) runs per visual line
     for run in p.iter(f"{W}r"):
@@ -124,7 +152,7 @@ def _docx_paragraph(p) -> list:
             if child.tag == f"{W}t":
                 pieces[-1].append((child.text or "", bold))
             elif child.tag == f"{W}tab":
-                pieces[-1].append((" ", bold))
+                pieces[-1].append((tab, bold))
             elif child.tag in (f"{W}br", f"{W}cr"):
                 pieces.append([])
     out = []

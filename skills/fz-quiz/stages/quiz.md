@@ -12,14 +12,14 @@ Turn what the user asked for into JSON: only the choices they actually stated (c
    - **easy:** recall a definition or fact from the Video. **medium:** apply or explain it. **hard:** compare, spot the error, or reason about a new example.
    - One idea per question, in clear English; the Video's own examples (Rahul, the fee receipt, the college portal) make good questions.
    - Wrong options are believable mistakes a student might make, similar in length and style to the correct one.
-   - Code (when the Video teaches code): mark it with backticks, and run it in the sandbox to confirm the answer.
+   - Code (when the Video teaches code): mark it in Fuzentrix markup: `` `code` `` inside a sentence, a ``` block with its language for whole lines (```python …```). Run it in the sandbox to confirm the answer. Options hold no tables or links (the LMS removes them there).
    - Explanations say *why* the answer is correct, in one or two sentences.
 4. Self-check, then `fz.py submit <bundle> quiz <file>`.
 
 ## Build and Gate 3
 
 1. `fz.py build <bundle> quiz` writes:
-   - `quiz/<topic>_quiz.xlsx` (PLAIN_TEXT) and `quiz/<topic>_quiz_html.xlsx` (RICH_HTML), both in the LMS Quiz Template;
+   - `quiz/<topic>_quiz.xlsx` in the LMS Quiz Template, with code and bold text still marked;
    - `quiz/quiz_preview.html` for review.
 2. Offer `quiz_preview.html` and ask the Content Lead to approve it or request changes. A change means rewriting that Video's questions and resubmitting them, then rebuilding.
 3. When approved, record it: `fz.py schema gate3`, then `fz.py gate <bundle> 3 <file>` with `"deliverable": "quiz"`.
@@ -31,4 +31,4 @@ Turn what the user asked for into JSON: only the choices they actually stated (c
 - Every question traces to its `source_segments`, with no facts the Video doesn't teach.
 - No two questions test the same fact the same way.
 
-**Done when:** Gate 3 is recorded for the quiz and the status says Done. Upload `<topic>_quiz_html.xlsx` to the LMS.
+**Done when:** Gate 3 is recorded for the quiz and the status says Done. Then tell the user the next step the status gives: convert it with Fuzentrix Quiz HTML before uploading, or, when nothing is marked, upload it as it is.

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Fuzentrix Coding Problem HTML"
+  short_description: "Convert a given coding problem into LMS HTML"
+  default_prompt: "Use $fz-coding-problem-html to convert this coding problem into LMS HTML."

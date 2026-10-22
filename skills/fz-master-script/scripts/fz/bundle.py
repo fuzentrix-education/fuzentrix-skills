@@ -29,6 +29,17 @@ class Bundle:
         if not (self.root / "manifest.json").exists():
             raise Rejected(f"{self.root} is not a Video Bundle (no manifest.json). Start with `fz.py new` or `fz.py unpack`.")
         self.manifest = read_json(self.root / "manifest.json")
+        self._migrate()
+
+    def _migrate(self) -> None:
+        """Bring a bundle from an older skill version up to date: the Editor Pack is now the Editor Kit."""
+        old, new = self.root / "editor_pack", self.root / "editor_kit"
+        stages = self.manifest.get("stages", {})
+        if old.is_dir() and not new.exists():
+            old.rename(new)
+        if "editor_pack" in stages:
+            stages["editor_kit"] = stages.pop("editor_pack")
+            self.save()
 
     # --- creation -------------------------------------------------------
     @classmethod

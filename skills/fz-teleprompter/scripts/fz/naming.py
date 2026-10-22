@@ -1,6 +1,6 @@
 """Where every file of a Video goes, and what it is called. The one place these rules live.
 
-    <bundle>/editor_pack/                      everything the Video Editor needs
+    <bundle>/editor_kit/                      everything the Video Editor needs
         editor_guide.md / .html               timeline: what plays when, which file
         markers.xml                           Premiere sequence markers (one per Visual Event)
         cue_sheet.csv
@@ -15,7 +15,7 @@ File names match the Premiere marker names (the event id, e.g. S04-E1), so nothi
 """
 from __future__ import annotations
 
-EDITOR_PACK = "editor_pack"
+EDITOR_KIT = "editor_kit"
 TELEPROMPTER = "teleprompter"
 FOLDERS = {"slides": "slides", "image": "images", "diagram": "diagrams", "storyboard": "storyboards", "animation": "animations"}
 
@@ -24,12 +24,12 @@ def video_id(bundle) -> str:
     return bundle.manifest["video"]["id"]
 
 
-def pack_dir(bundle, *parts):
-    return bundle.path(EDITOR_PACK, *parts)
+def kit_dir(bundle, *parts):
+    return bundle.path(EDITOR_KIT, *parts)
 
 
 def slides_file(bundle):
-    return pack_dir(bundle, "slides", f"{video_id(bundle)}_slides.pptx")
+    return kit_dir(bundle, "slides", f"{video_id(bundle)}_slides.pptx")
 
 
 def asset_name(vid: str, event: dict, kind: str, ext: str) -> str:
@@ -38,7 +38,7 @@ def asset_name(vid: str, event: dict, kind: str, ext: str) -> str:
 
 
 def asset_path(bundle, event: dict, kind: str, ext: str):
-    return pack_dir(bundle, FOLDERS[kind], asset_name(video_id(bundle), event, kind, ext))
+    return kit_dir(bundle, FOLDERS[kind], asset_name(video_id(bundle), event, kind, ext))
 
 
 def relative(bundle, path) -> str:

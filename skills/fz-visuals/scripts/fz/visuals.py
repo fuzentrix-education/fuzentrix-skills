@@ -1,4 +1,4 @@
-"""fz-visuals: images, diagrams and storyboards for the Video's Visual Events, saved into the Editor Pack.
+"""fz-visuals: images, diagrams and storyboards for the Video's Visual Events, saved into the Editor Kit.
 
 Images: every image Visual Event gets a ready prompt in the Fuzentrix house style; the Host App's own image
 tool makes it and saves it under the given name. Storyboards (optional) work the same way for animations.
@@ -8,21 +8,25 @@ from __future__ import annotations
 import html
 import struct
 
-from . import diagrams, naming, settings
+from . import brandkit, diagrams, naming, views
 from .bundle import read_json, write_json
 from .problems import Rejected
 
-SIZE = (1536, 1024)
 MIN_WIDTH = 1024
-HOUSE_STYLE = (
-    "Clean 2D vector educational illustration on a pure white background. Thick navy outlines, vivid "
-    "royal-blue accents, pale-blue fills and soft blue gradients; rounded, friendly shapes. No photorealism, "
-    "3D, anime or heavy texture. When a person helps explain the idea, use one friendly young learner: dark "
-    "navy hair, simple light face, blue shirt, rounded proportions. One clear hero object, minimal props, no "
-    "background rooms or clutter. Short, large, correctly spelled English labels only where they help. Keep "
-    "wide empty margins at the edges (the video crops and overlays here). If a caption fits, put one short "
-    "sentence in a pale-blue rounded box at the bottom."
-)
+
+
+def house_style(brand) -> str:
+    """The Brand Kit's illustration style plus its characters, as one prompt preface."""
+    style = " ".join(str(brand.get("illustration.style") or "").split())
+    people = " ".join(f"When {c['use_when']}, use {c['description']}." for c in brand.get("characters") or [])
+    refs = [r for c in brand.get("characters") or [] for r in c.get("references") or []] + list(brand.get("illustration.references") or [])
+    attach = f" Reference images in the Brand Kit ({', '.join(refs)}): attach them to the image tool when it accepts images." if refs else ""
+    return " ".join(x for x in (style, people) if x) + attach
+
+
+def image_size_wanted(brand) -> tuple:
+    w, h = brand.get("illustration.size") or (1536, 1024)
+    return int(w), int(h)
 
 
 def image_events(master: dict) -> list:
@@ -94,7 +98,7 @@ def submit_diagrams(bundle, data: dict) -> int:
     master = require_final(bundle, "Diagrams")
     events = {e["id"]: e for _, e in diagram_events(master)}
     specs = [{k: v for k, v in d.items() if k not in ("description", "trigger")} for d in data.get("diagrams") or []]
-    problems = diagrams.validate_all(specs, events)
+    problems = diagrams.validate_all(specs, events, brandkit.load(bundle))
     if problems:
         raise Rejected(problems)
     merged = dict(diagram_specs(bundle), **{d["event"]: d for d in specs})
@@ -113,20 +117,21 @@ def _found(path):
 
 def prompts(bundle) -> str:
     master = require_final(bundle, "Images")
-    style = settings.get(bundle, "illustration_style") or HOUSE_STYLE
+    brand = brandkit.load(bundle)
+    style, size = house_style(brand), image_size_wanted(brand)
     events = image_events(master)
     specs = diagram_specs(bundle)
     fallbacks = [(seg, e) for seg, e in diagram_events(master) if specs.get(e["id"], {}).get("type") == "image"]
     if not events and not fallbacks:
         return "This Master Script has no image Visual Events."
-    out = [f"{len(events) + len(fallbacks)} image(s). Generate each with the image tool at {SIZE[0]}×{SIZE[1]} (landscape), "
+    out = [f"{len(events) + len(fallbacks)} image(s). Generate each with the image tool at {size[0]}×{size[1]} (landscape), "
            "save it under the path shown, then run `fz.py build <bundle> visuals`.", "", f"House style (for every image): {style}", ""]
     for seg, e in events:
-        out += [f"{e['id']} → {naming.relative(bundle, naming.asset_path(bundle, e, 'image', 'png'))} ({SIZE[0]}×{SIZE[1]})",
+        out += [f"{e['id']} → {naming.relative(bundle, naming.asset_path(bundle, e, 'image', 'png'))} ({size[0]}×{size[1]})",
                 f"  Segment {seg['id']} · {seg['title']} · starts on \"{e['trigger']}\"",
                 f"  Prompt: {style} Scene: {e['description']} It illustrates: {seg.get('meaning_en', '')}", ""]
     for seg, e in fallbacks:
-        out += [f"{e['id']} → {naming.relative(bundle, naming.asset_path(bundle, e, 'diagram', 'png'))} ({SIZE[0]}×{SIZE[1]}, diagram)",
+        out += [f"{e['id']} → {naming.relative(bundle, naming.asset_path(bundle, e, 'diagram', 'png'))} ({size[0]}×{size[1]}, diagram)",
                 f"  Segment {seg['id']} · {seg['title']} · starts on \"{e['trigger']}\"",
                 f"  Prompt: {style} A clear explanatory diagram: {specs[e['id']]['prompt']} Labels must be spelled exactly.", ""]
     return "\n".join(out)
@@ -134,16 +139,18 @@ def prompts(bundle) -> str:
 
 def storyboard_prompts(bundle) -> str:
     master = require_final(bundle, "Storyboards")
-    style = settings.get(bundle, "illustration_style") or HOUSE_STYLE
+    brand = brandkit.load(bundle)
+    style, size = house_style(brand), image_size_wanted(brand)
+    panels, grid = brand.get("storyboard.panels") or 4, brand.get("storyboard.grid") or "2×2"
     events = storyboard_events(master)
     if not events:
         return "This Master Script has no animation Visual Events to storyboard."
-    out = [f"{len(events)} animation(s). Storyboards are optional: each is ONE image with 4 numbered panels (2×2) showing how the "
-           f"animation unfolds. Generate at {SIZE[0]}×{SIZE[1]}, save under the path shown, then run `fz.py build <bundle> visuals`.", ""]
+    out = [f"{len(events)} animation(s). Storyboards are optional: each is ONE image with {panels} numbered panels ({grid}) showing how the "
+           f"animation unfolds. Generate at {size[0]}×{size[1]}, save under the path shown, then run `fz.py build <bundle> visuals`.", ""]
     for seg, e in events:
         out += [f"{e['id']} → {naming.relative(bundle, naming.asset_path(bundle, e, 'storyboard', 'png'))}",
                 f"  Animation Template: {e.get('template') or 'custom'} · {e.get('duration_sec') or 3} s · starts on \"{e['trigger']}\"",
-                f"  Prompt: {style} A 4-panel storyboard, panels numbered 1–4, showing step by step: {e['description']}", ""]
+                f"  Prompt: {style} A {panels}-panel storyboard, panels numbered 1–{panels}, showing step by step: {e['description']}", ""]
     return "\n".join(out)
 
 
@@ -151,6 +158,7 @@ def build(bundle) -> dict:
     from . import editor
 
     master = require_final(bundle, "Visuals")
+    brand = brandkit.load(bundle)
     problems, rows = [], []
     for kind, events, required in (("image", image_events(master), True), ("storyboard", storyboard_events(master), False)):
         for seg, e in events:
@@ -166,7 +174,7 @@ def build(bundle) -> dict:
                 problems.append(f"{f.name} is not a readable PNG or JPEG.")
             elif size[0] < MIN_WIDTH:
                 problems.append(f"{f.name} is {size[0]}×{size[1]}; images need to be at least {MIN_WIDTH} pixels wide for video. "
-                                f"Generate it again at {SIZE[0]}×{SIZE[1]}.")
+                                "Generate it again at the size `fz.py show <bundle> image-prompts` gives.")
             else:
                 rows.append((kind, seg, e, f, size))
     specs = diagram_specs(bundle)
@@ -184,16 +192,24 @@ def build(bundle) -> dict:
             else:
                 rows.append(("diagram", seg, e, f, image_size(f.read_bytes()) or (0, 0)))
         else:
-            ok = diagrams.draw(spec, png.with_suffix(".svg"), png)
+            ok = diagrams.draw(spec, png.with_suffix(".svg"), png, brand)
             drawn += 1
             png_missing += 0 if ok else 1
             rows.append(("diagram", seg, e, png if ok else png.with_suffix(".svg"), (diagrams.W, diagrams.H)))
+    from . import animations
+    for e in animations.to_specify(bundle, master):
+        problems.append(f"{e['id']} needs an animation spec: start from `fz.py draft <bundle> animations all <file>`, "
+                        "then `fz.py submit <bundle> animations <file>`.")
+    problems += animations.check_ai(bundle, master, brand)
     if problems:
         raise Rejected(problems)
+    for seg, e, preview in animations.build_all(bundle, master, brand):
+        rows.append(("animation", seg, e, preview, image_size(preview.read_bytes()) if preview.suffix == ".png" else (diagrams.W, diagrams.H)))
     _gallery(bundle, master, rows)
     bundle.manifest["stages"]["visuals"] = {"status": "built", "images": sum(1 for r in rows if r[0] == "image"),
                                             "diagrams": sum(1 for r in rows if r[0] == "diagram"),
                                             "storyboards": sum(1 for r in rows if r[0] == "storyboard"),
+                                            "animations": sum(1 for r in rows if r[0] == "animation"),
                                             "png_missing": png_missing}
     bundle.log("visuals built")
     editor.build(bundle)
@@ -204,16 +220,13 @@ def _gallery(bundle, master: dict, rows: list) -> None:
     md = [f"# Visuals: {master['video'].get('title') or master['video']['id']}", ""]
     cards = []
     for kind, seg, e, f, size in rows:
-        rel = f.relative_to(naming.pack_dir(bundle)).as_posix()
+        rel = f.relative_to(naming.kit_dir(bundle)).as_posix()
         md += [f"- **{e['id']}** · {kind} · `{rel}` ({size[0]}×{size[1]}) · {seg['title']} · starts on \"{e['trigger']}\""]
         cards.append(f'<figure><img src="{html.escape(rel)}" alt="{html.escape(e["description"])}"><figcaption><strong>{e["id"]}</strong> · {kind} · '
                      f'{html.escape(seg["title"])}<br>Starts on: “{html.escape(e["trigger"])}”</figcaption></figure>')
     if not rows:
         md.append("No images or storyboards.")
-    page = ("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>Visuals</title><style>"
-            "body{font-family:system-ui,sans-serif;margin:2rem;color:#13213c}figure{display:inline-block;width:46%;margin:1%;vertical-align:top}"
-            "img{width:100%;border:1px solid #dce7f4;border-radius:8px;background:#fff}figcaption{font-size:14px;margin-top:.4rem}</style></head>"
-            f"<body><h1>Visuals</h1>{''.join(cards) or '<p>No images or storyboards.</p>'}</body></html>\n")
-    naming.pack_dir(bundle).mkdir(parents=True, exist_ok=True)
-    naming.pack_dir(bundle, "visuals.md").write_text("\n".join(md) + "\n", encoding="utf-8")
-    naming.pack_dir(bundle, "visuals.html").write_text(page, encoding="utf-8")
+    page = views.gallery_page("Visuals", "".join(cards) or "<p>No images or storyboards.</p>")
+    naming.kit_dir(bundle).mkdir(parents=True, exist_ok=True)
+    naming.kit_dir(bundle, "visuals.md").write_text("\n".join(md) + "\n", encoding="utf-8")
+    naming.kit_dir(bundle, "visuals.html").write_text(page, encoding="utf-8")

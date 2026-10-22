@@ -1,0 +1,54 @@
+# LMS HTML Policy: what the LMS keeps when HTML is pasted or imported. Every LMS HTML the skills write (quiz
+# questions, options and explanations, cheatsheets, coding problems) is checked against these rules, so nothing
+# is stripped or rejected on upload.
+#
+# DRAFT: taken from the LMS backend sanitiser designs (quiz-rich-content plan, coding-task and written-page
+# designs). Replace it with the LMS team's confirmed rules: put this file, edited, in the Configuration Pack as
+# policy/lms-html.yaml and publish a new release.
+status: draft
+
+code:
+  block: language_class          # code blocks are <pre><code class="language-…">; "bare" = <pre><code>
+  languages: [plaintext, python, java, c, cpp, csharp, javascript, typescript, sql, html, css, bash, json]
+  default_language: plaintext
+
+images:
+  # how an image is written into the HTML until it is uploaded to the LMS: {id} is the image's id
+  placeholder: "{{FZ_IMAGE:{id}}}"
+
+contexts:
+  quiz_question:
+    tags: [p, br, h2, h3, h4, h5, h6, strong, b, em, i, u, s, ul, ol, li, blockquote, hr, code, pre, a,
+           table, thead, tbody, tr, th, td]
+    attributes: {a: [href], code: [class]}
+    classes: {code: ["language-*"]}
+    style: []
+    protocols: [http, https]
+    images: false
+    max_bytes: 65536
+  quiz_option:
+    extends: quiz_question
+    remove: [h2, h3, h4, h5, h6, table, thead, tbody, tr, th, td, a, blockquote, hr]
+    max_bytes: 32768
+  quiz_explanation:
+    extends: quiz_question
+    remove: [h2, h3, h4, h5, h6, table, thead, tbody, tr, th, td]
+    max_bytes: 32768
+  coding_problem:
+    tags: [h2, h3, h4, p, br, strong, b, em, i, u, s, sub, sup, ul, ol, li, blockquote, hr, code, pre, span, del, ins,
+           table, thead, tbody, tr, th, td, a, img]
+    attributes: {a: [href], img: [src, alt, width, height], code: [class]}
+    classes: {code: ["language-*"]}
+    style: []
+    protocols: [http, https]
+    images: true
+    max_bytes: 262144
+  cheatsheet_page:
+    tags: [h2, h3, h4, p, br, strong, b, em, i, u, s, sub, sup, ul, ol, li, blockquote, hr, code, pre, span, del, ins,
+           table, thead, tbody, tr, th, td, a, img]
+    attributes: {a: [href], img: [src, alt, width, height], code: [class]}
+    classes: {code: ["language-*"]}
+    style: []
+    protocols: [http, https]
+    images: true
+    max_bytes: 262144

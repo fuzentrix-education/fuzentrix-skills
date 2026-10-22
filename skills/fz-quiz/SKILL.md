@@ -1,19 +1,17 @@
 ---
 name: fz-quiz
-description: "Fuzentrix Quiz for one or more Videos in the LMS Quiz Template. Use when asked for quiz questions on a Topic, or to convert an existing quiz workbook to RICH_HTML."
+description: "Fuzentrix Quiz: quiz questions for one or more Videos, as an Excel workbook in the LMS Quiz Template. Use when asked for a quiz on a Topic."
 ---
 
 # Fuzentrix Quiz
 
-Builds an LMS Quiz from the Final Master Scripts of one or more Videos (a **Topic**), or converts an existing quiz workbook to RICH_HTML. Terms are defined in `references/glossary.md`.
+Builds an LMS Quiz from the Final Master Scripts of one or more Videos (a **Topic**), as an Excel workbook in the LMS Quiz Template. Code and bold text stay marked in the cells (`` `code` ``, ``` blocks, `**bold**`); Fuzentrix Quiz HTML (`fz-quiz-html`) turns them into the LMS's RICH_HTML before upload. Terms are defined in `references/glossary.md`.
 
 Every file is built by `scripts/fz.py` in this skill's folder: `python <skill folder>/scripts/fz.py <command>`. You write content as JSON; the builder checks it against every LMS import rule and either saves it or prints a numbered problem list. Fix every listed problem and run the same command again. Ids (Q03, S10) come from the builder's output; copy them exactly.
 
-## Convert an existing quiz workbook
+To convert an existing quiz workbook to RICH_HTML, use Fuzentrix Quiz HTML instead.
 
-Run `fz.py convert-quiz <workbook.xlsx> <work>/<name>_html.xlsx`, then offer the new file for download. The original stays unchanged. Done.
-
-## Build a new Quiz
+## Steps
 
 1. **Set up the Topic Bundle** in a working folder in the sandbox (for example `/mnt/data/fz/`).
    - **New Quiz:** the user uploads the Video Bundle zip of each Video in the Topic; each needs a Final Master Script. Use the Topic ID the user gives (format `course-pN-tN`, e.g. `dbms-p2-t1`; ask if missing). Run

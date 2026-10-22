@@ -2,7 +2,8 @@
 
 - **Instructor Script**: the Instructor's own free-flow draft for a Video, usually Telugu-English.
 - **Video Bundle**: the folder (zipped for download) holding all work for one Video. Upload it to continue.
-- **Configuration Pack**: the published Fuzentrix settings (video guidelines, teleprompter formatting); a DRAFT bundle uses skill defaults instead.
+- **Configuration Pack**: the published Fuzentrix settings for how we work (video guidelines, teleprompter formatting, the LMS HTML Policy); a DRAFT bundle uses skill defaults instead.
+- **Brand Kit**: the published set of everything about how content looks: slide template and background, colours, fonts, logos, illustration style and characters. Attached as its release zip (or added from Google Drive) and kept in the bundle; the **Default Brand Kit** (the Fuzentrix look) is used when the user has none.
 - **Chunk**: a run of consecutive script lines handled in one turn (C01…). Master Script Chunks (M01…) group whole Segments.
 - **Line Role**: the purpose of a line: spoken, heading, speaker_label, stage_direction, note_to_team, slide_only, duplicate.
 - **Finding**: one problem found by Script Review, quoting its line, with a severity and a suggested fix.
@@ -21,3 +22,5 @@
 - **Quiz Request**: the user's quiz choices (count, mix, points…), with Fuzentrix defaults for the rest.
 - **LMS Quiz Template**: the Excel layout and import rules the LMS accepts (one bad row rejects the whole file).
 - **Gate 3**: the Content Lead approves the Quiz (or the Cheatsheet).
+- **LMS HTML Policy**: the tags, attributes and styles the LMS keeps, for each place HTML goes (quiz question, option, explanation, cheatsheet, coding problem). Every LMS HTML is checked against it before it is handed over.
+- **Fuzentrix markup**: how text marks code and emphasis until it becomes HTML: `` `code` ``, ``` blocks with their language, **bold**.

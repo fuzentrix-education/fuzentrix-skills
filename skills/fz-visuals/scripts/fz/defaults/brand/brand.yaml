@@ -1,0 +1,107 @@
+# Fuzentrix Brand Kit: how Fuzentrix content looks. Skills take every colour, font, template, style and
+# character from here; nothing about the look lives in their code. This folder is the Default Brand Kit
+# the skills fall back to, and the staging folder the Drive release is published from.
+#
+# Colours are semantic tokens (colors:); every other section names a token or gives "#RRGGBB".
+schema: 1
+
+brand:
+  id: fuzentrix
+  name: Fuzentrix Education
+
+colors:
+  ink: "#062858"            # headings and body text
+  primary: "#0A59C8"        # brand blue: accents, boxes, arrows
+  primary_dark: "#033476"
+  muted: "#52657D"          # secondary text
+  surface: "#FFFFFF"
+  surface_alt: "#E5EFFD"    # pale-blue cards
+  border: "#DCE7F4"
+  on_primary: "#FFFFFF"     # text on primary
+  code_bg: "#062858"
+  code_text: "#FFFFFF"
+  example_bg: "#F6F8FB"
+  danger: "#C62828"         # mistakes
+
+fonts:
+  # family: the installed font name; file: optional font file in this kit (fonts/…), used to measure text
+  # exactly and to draw diagrams; avg_char_width: average glyph width in ems, used when there is no file.
+  heading: {family: Aptos, avg_char_width: 0.56}
+  body: {family: Aptos, avg_char_width: 0.52}
+  code: {family: Consolas, avg_char_width: 0.60}
+  fallback: "'Segoe UI', Arial, sans-serif"
+
+logos: {}                   # e.g. full: logos/full.png, on_dark: logos/on_dark.png (the default logo is in the slide background)
+
+slides:
+  template: slides/template.pptx      # its Blank layout and slide size are used
+  background: slides/background.png   # full-bleed on every slide
+  label: {text: "FUZENTRIX EDUCATION · {course}", size: 16, color: primary}
+  title: {case: upper, colors: [ink, primary], size: 48, title_slide_size: 66}
+  # fractions of the slide; content stays inside content_area, which must keep clear of presenter_area
+  content_area: {left: 0.06, right: 0.86, top: 0.34, bottom: 0.90, label_y: 0.065, title_y: 0.11}
+  title_slide: {label_y: 0.20, title_y: 0.26, subtitle_y: 0.62}
+  presenter_area: {x: 0.90, y: 0.80, w: 0.10, h: 0.20}
+  bullets: {max_lines: 2, marker: square}
+  sizes: {body: 32, subtitle: 34, check: 18, agenda_number: 24, agenda_item: 30, definition_label: 18, definition: 36,
+          code: 22, output_label: 16, column_title: 28, column_body: 24, diagram_box: 28, quote: 40,
+          placeholder_label: 16, placeholder_text: 20}
+  colors: {body: ink, subtitle: muted, marker: primary, marker_text: on_primary, card: surface, card_border: border,
+           card_alt: surface_alt, accent: primary, definition_label: primary_dark, code_bg: code_bg, code_text: code_text,
+           output_label: primary, output_text: primary_dark, column_title: primary, box: primary, box_text: on_primary,
+           connector: primary, placeholder_label: primary, placeholder_text: muted}
+  words: {definition: DEFINITION, output: OUTPUT, image_placeholder: IMAGE TO ADD}
+
+diagrams:
+  font: heading
+  safe_area: {left: 120, right: 1640, top: 120, bottom: 840}   # px on 1920×1080, clear of the presenter area
+  min_text: 28
+  char_width: {bold: 0.58, regular: 0.53}                      # text-fit estimate when the kit has no font file
+  flow_gap: 170
+  sizes: {title: 52, box: 44, label: 28, table_header: 34, table_cell: 30, tree_root: 44, tree_child: 34,
+          compare_title: 40, compare_item: 32, node: 32, timeline_when: 34, timeline_label: 28, cycle: 32, layer: 34,
+          list_item: 36, stat_value: 160, stat_label: 40, heading: 72, subtitle: 40, code: 30, array: 40, index: 24,
+          caption: 36}
+  colors: {title: ink, box: primary, box_text: on_primary, arrow: ink, label: muted, card: surface, card_border: border,
+           header: surface_alt, text: ink, child: surface_alt, child_border: primary, heading: primary, bullet: primary,
+           decision: primary_dark, terminal: primary_dark, axis: muted, code_bg: code_bg, code_text: code_text, highlight: primary}
+
+illustration:
+  size: [1536, 1024]
+  style: >-
+    Clean 2D vector educational illustration on a pure white background. Thick navy outlines, vivid
+    royal-blue accents, pale-blue fills and soft blue gradients; rounded, friendly shapes. No photorealism,
+    3D, anime or heavy texture. One clear hero object, minimal props, no background rooms or clutter. Short,
+    large, correctly spelled English labels only where they help. Keep wide empty margins at the edges (the
+    video crops and overlays here). If a caption fits, put one short sentence in a pale-blue rounded box at
+    the bottom.
+  references: []            # style reference images in this kit, e.g. illustration/ref-01.png
+  # flat backgrounds the image tool may use when it can't make a transparent one; the first that is far
+  # from every brand colour is used, and removed automatically
+  key_colors: ["#00FF00", "#FF00FF", "#00FFFF"]
+
+characters:
+  - id: learner
+    use_when: a person helps explain the idea
+    description: one friendly young learner with dark navy hair, a simple light face, a blue shirt and rounded proportions
+    references: []          # character sheets in this kit, e.g. characters/learner/sheet.png
+
+storyboard: {panels: 4, grid: "2×2"}
+
+cheatsheet:                 # the LMS revision page; used as far as the LMS HTML Policy lets colour through
+  heading: ink
+  subheading: primary
+  text: ink
+  key_idea: {background: surface_alt, border: primary, label: primary_dark}
+  example: {background: example_bg, label: primary}
+  mistakes: {color: danger}
+  table: {header_background: surface_alt, border: border}
+  code: {background: surface_alt, text: ink}
+  reveal: {border: border, question: primary}
+  icons: {key_idea: "💡", example: "🧪", mistakes: "⚠️", reveal: "❓", quick_revision: "📌", mistake_item: "✗"}
+  labels: {key_idea: "Key idea", example: "Example", mistakes: "Common mistakes", quick_revision: "Quick revision", answer: "Answer"}
+
+motion:                     # for the motion-animation workflow
+  easing: {enter: easeOutCubic, exit: easeInCubic}
+  durations: {enter: 0.4, exit: 0.3, min_hold: 1.0}
+  stagger: 0.08

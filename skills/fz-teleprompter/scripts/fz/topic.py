@@ -16,7 +16,7 @@ def create(root, topic_id: str, title: str, videos: list) -> Bundle:
         raise Rejected(f"{root} already contains a bundle. Use a new folder.")
     if not videos:
         raise Rejected("Name at least one Video Bundle with --video.")
-    masters, problems, config_from = [], [], None
+    masters, problems, config_from, brands = [], [], None, []
     with tempfile.TemporaryDirectory() as tmp:
         for i, source in enumerate(videos):
             source = Path(source)
@@ -29,6 +29,9 @@ def create(root, topic_id: str, title: str, videos: list) -> Bundle:
             if config_from is None and video.path("_config_snapshot").exists():
                 config_from = Path(tmp) / "config"
                 shutil.copytree(video.path("_config_snapshot"), config_from)
+            brands.append((video.manifest.get("brand"), video.path("_brand_snapshot"), Path(tmp) / f"brand{i}"))
+            if video.path("_brand_snapshot").exists():
+                shutil.copytree(video.path("_brand_snapshot"), Path(tmp) / f"brand{i}")
         ids = [m[0] for m in masters]
         for vid in set(ids):
             if ids.count(vid) > 1:
@@ -41,6 +44,9 @@ def create(root, topic_id: str, title: str, videos: list) -> Bundle:
             write_json(root / "videos" / vid / "master.json", master)
         if config_from:
             shutil.copytree(config_from, root / "_config_snapshot")
+        brand, brand_note = _shared_brand(brands)
+        if brand and brand["source"] != "default":
+            shutil.copytree(brands[0][2], root / "_brand_snapshot")
     config = masters[0][2] if masters else {"draft": True, "version": None}
     write_json(root / "manifest.json", {
         "kind": "topic",
@@ -53,7 +59,31 @@ def create(root, topic_id: str, title: str, videos: list) -> Bundle:
         "gates": {},
         "history": [{"at": now(), "event": f"topic created from {', '.join(ids)}"}],
     })
-    return Bundle(root)
+    bundle = Bundle(root)
+    if brand:
+        bundle.manifest["brand"] = brand
+    if brand_note:
+        bundle.manifest["brand_note"] = brand_note
+    bundle.save()
+    return bundle
+
+
+def _shared_brand(brands: list):
+    """The Brand Kit every Video uses, for the Topic; or None and a note when they differ."""
+    def key(rec):
+        return (rec["source"] == "default", rec["id"], rec["version"],
+                tuple(sorted((k, str(o["value"])) for k, o in (rec.get("overrides") or {}).items())))
+    recs = [b[0] for b in brands]
+    if not recs or any(r is None for r in recs):
+        return None, ""
+    if len({key(r) for r in recs}) > 1:
+        names = sorted({f"{r['id']} {r['version']}" for r in recs})
+        return None, (f"These Videos use different Brand Kits ({'; '.join(names)}). Choose one for the Topic: "
+                      "`fz.py attach <topic> brand <zip>` (or `default`).")
+    rec = dict(recs[0])
+    if rec["source"] != "default":
+        rec["source"] = "inherited"
+    return rec, ""
 
 
 def is_topic(bundle) -> bool:

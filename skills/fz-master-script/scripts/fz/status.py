@@ -1,7 +1,7 @@
 """Where a Video Bundle is, and what to do next. This is how work resumes in a new chat."""
 from __future__ import annotations
 
-from . import master, review
+from . import brandkit, master, review
 
 
 def next_step(bundle) -> tuple:
@@ -10,11 +10,17 @@ def next_step(bundle) -> tuple:
         return topic_next_step(bundle)
     lines = [("fz-script-review", _review_step(bundle)), ("fz-master-script", _master_step(bundle))]
     final = bundle.manifest["stages"].get("master", {}).get("status") == "final"
-    for skill, step in (("fz-slides", _slides_step), ("fz-visuals", _visuals_step), ("fz-teleprompter", _teleprompter_step)):
-        lines.append((skill, step(bundle) if final else "Waiting for the Final Master Script (fz-master-script, Gate 2)."))
+    for skill, step, branded in (("fz-slides", _slides_step, True), ("fz-visuals", _visuals_step, True),
+                                 ("fz-teleprompter", _teleprompter_step, False)):
+        if not final:
+            lines.append((skill, "Waiting for the Final Master Script (fz-master-script, Gate 2)."))
+        elif branded and not bundle.manifest.get("brand"):
+            lines.append((skill, brandkit.ASK))
+        else:
+            lines.append((skill, step(bundle)))
     text = "\n".join(f"{skill} · {step}" for skill, step in lines)
     if all(step.startswith("Done") for _, step in lines):
-        text += "\nAll done: pack the Video Bundle (`fz.py pack <bundle> <zip>`) and the Editor Pack (`fz.py pack-editor <bundle> <zip>`) for download."
+        text += "\nAll done: pack the Video Bundle (`fz.py pack <bundle> <zip>`) and the Editor Kit (`fz.py pack-editor <bundle> <zip>`) for download."
     first = next((skill for skill, step in lines if not step.startswith("Done")), "Done")
     return (first, text)
 
@@ -67,7 +73,7 @@ def _master_step(bundle) -> str:
 
 def _slides_step(bundle) -> str:
     if bundle.manifest["stages"].get("slides", {}).get("status") == "built":
-        return f"Done: editor_pack/slides/{bundle.manifest['video']['id']}_slides.pptx."
+        return f"Done: editor_kit/slides/{bundle.manifest['video']['id']}_slides.pptx."
     return "Next: `fz.py build <bundle> slides`."
 
 
@@ -76,15 +82,21 @@ def _visuals_step(bundle) -> str:
     from .visuals import diagrams_to_draw, missing_images
 
     if bundle.manifest["stages"].get("visuals", {}).get("status") == "built":
-        return "Done: images, diagrams and storyboards are in editor_pack/ (see visuals.html)."
+        return "Done: images, diagrams and storyboards are in editor_kit/ (see visuals.html)."
+    from .animations import missing_ai, to_specify
+
     m = read_json(bundle.path("02_master", "master.json"))
-    images, todo = missing_images(bundle, m), diagrams_to_draw(bundle, m)
-    if images or todo:
+    images, todo, anims, ai = missing_images(bundle, m), diagrams_to_draw(bundle, m), to_specify(bundle, m), missing_ai(bundle, m)
+    if images or todo or anims or ai:
         parts = []
         if images:
             parts.append(f"{len(images)} image{'s' if len(images) != 1 else ''} to generate (`fz.py show <bundle> image-prompts`)")
         if todo:
             parts.append(f"{len(todo)} diagram{'s' if len(todo) != 1 else ''} to draw (`fz.py draft <bundle> diagrams all <file>`)")
+        if anims:
+            parts.append(f"{len(anims)} animation{'s' if len(anims) != 1 else ''} to specify (`fz.py draft <bundle> animations all <file>`)")
+        if ai:
+            parts.append(f"{len(ai)} animation element{'s' if len(ai) != 1 else ''} to generate (`fz.py show <bundle> animation-prompts`)")
         return "Next: " + "; ".join(parts) + ", then `fz.py build <bundle> visuals`."
     return "Next: `fz.py build <bundle> visuals` (storyboards are optional: `fz.py show <bundle> storyboard-prompts`)."
 
@@ -119,17 +131,29 @@ def _quiz_step(bundle) -> str:
     if "quiz" not in bundle.manifest["gates"].get("3", {}):
         return ("Next: Gate 3. Show the Content Lead quiz_preview.html; apply edits, then record approval "
                 "(`fz.py gate <bundle> 3 <file>`, deliverable quiz).")
-    return "Done: the Quiz is approved. Upload <topic>_quiz_html.xlsx to the LMS."
+    if stages["quiz"].get("markup", True):
+        return ("Done: the Quiz is approved. Before uploading, turn it into the LMS's RICH_HTML with Fuzentrix Quiz HTML "
+                "(fz-quiz-html): its cells mark code and bold text.")
+    return "Done: the Quiz is approved. <topic>_quiz.xlsx is plain text and can be uploaded to the LMS as it is."
 
 
 def _cheatsheet_step(bundle) -> str:
+    from .cheatsheet import missing_images
+
+    if not bundle.manifest.get("brand"):
+        return brandkit.ASK
     stage = bundle.manifest["stages"].get("cheatsheet", {}).get("status")
     if stage is None:
         return ("Next: Cheatsheet. Read `fz.py show <bundle> sources <video>` for each Video, start from "
                 "`fz.py draft <bundle> cheatsheet all <file>`, then `fz.py submit <bundle> cheatsheet <file>`.")
     if stage != "built":
         return "Next: build the Cheatsheet with `fz.py build <bundle> cheatsheet`."
+    missing = missing_images(bundle)
+    if missing:
+        return (f"Next: {len(missing)} cheatsheet image{'s' if len(missing) != 1 else ''} to generate "
+                "(`fz.py show <bundle> cheatsheet-image-prompts`), then `fz.py build <bundle> cheatsheet`.")
     if "cheatsheet" not in bundle.manifest["gates"].get("3", {}):
         return ("Next: Gate 3. Show the Content Lead cheatsheet/preview.html; apply edits, then record approval "
                 "(`fz.py gate <bundle> 3 <file>`, deliverable cheatsheet).")
-    return "Done: the Cheatsheet is approved. Paste <topic>_cheatsheet.html into the LMS and upload its images (insertion_map.md)."
+    return ("Done: the Cheatsheet is approved. Paste <topic>_cheatsheet.html into the LMS and attach each image where "
+            "insertion_map.md shows its placeholder.")
