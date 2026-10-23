@@ -362,7 +362,8 @@ def build(bundle) -> dict:
     if not images(data):
         lines.append("| (none) | | | | |")
     (folder / "insertion_map.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
-    bundle.manifest["stages"]["cheatsheet"] = {"status": "built", "mode": t.mode, "policy": policy["_source"]}
+    bundle.manifest["stages"]["cheatsheet"] = {"status": "built", "mode": t.mode, "policy": policy["_source"],
+                                                "brand": brandkit.signature(bundle)}
     bundle.manifest["gates"].get("3", {}).pop("cheatsheet", None)
     bundle.log("cheatsheet built")
     return {"sections": len(data["sections"]), "images": len(images(data)), "mode": t.mode, "policy": policy["_source"],

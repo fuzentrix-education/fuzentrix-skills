@@ -37,11 +37,15 @@ def _check_finding(i: int, f: dict, lines_by_id: dict, allowed_lines, allow_afte
             problems.append(f"{label}: line {f['line']} is not in this {'script' if allow_after_line else 'Chunk'}.")
         elif not f.get("quote") or _norm(f["quote"]) not in _norm(line["text"]):
             problems.append(f"{label}: the quote is not in line {f['line']}. Copy the exact words from the line.")
-    elif allow_after_line and f.get("after_line"):
+    elif f.get("after_line"):  # something missing: fix_text is the line to add after it
         if f["after_line"] not in lines_by_id:
             problems.append(f"{label}: after_line {f['after_line']} does not exist.")
+        elif f["after_line"] not in allowed_lines:
+            problems.append(f"{label}: after_line {f['after_line']} is not in this Chunk; a line is added in the Chunk of the line it follows.")
+        elif not allow_after_line and not str(f.get("fix_text") or "").strip():
+            problems.append(f"{label}: give the line to add as 'fix_text'.")
     else:
-        problems.append(f"{label}: give the line it is about ('line' + exact 'quote')" + (", or 'after_line' for something missing." if allow_after_line else "."))
+        problems.append(f"{label}: give the line it is about ('line' + exact 'quote'), or 'after_line' and the line to add as 'fix_text'.")
     if f.get("category") not in CATEGORIES:
         problems.append(f"{label}: category must be one of {', '.join(CATEGORIES)}.")
     if f.get("severity") not in SEVERITIES:
@@ -49,6 +53,8 @@ def _check_finding(i: int, f: dict, lines_by_id: dict, allowed_lines, allow_afte
     for key in ("problem", "suggestion"):
         if not str(f.get(key, "")).strip():
             problems.append(f"{label}: '{key}' is empty.")
+    if f.get("role") not in (None, "spoken", "slide_only"):
+        problems.append(f"{label}: role must be spoken or slide_only (the Line Role of the added line).")
     if "fix_text" in f and not isinstance(f["fix_text"], str):
         problems.append(f"{label}: fix_text must be text (use \"\" to mean: delete this line).")
     return problems
@@ -126,7 +132,7 @@ def build(bundle) -> dict:
         points += data.get("points_to_check") or []
     overview = read_json(bundle.path("01_review", "overview.json"))
     points += overview.get("points_to_check") or []
-    chunk_findings.sort(key=lambda f: order[f["line"]])
+    chunk_findings.sort(key=lambda f: order[f["line"]] if f.get("line") else order[f["after_line"]] + 0.5)
     findings = []
     for i, f in enumerate(chunk_findings + (overview.get("findings") or []), 1):
         findings.append(dict(f, id=f"F{i:03d}"))

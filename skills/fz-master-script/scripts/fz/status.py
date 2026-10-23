@@ -72,6 +72,9 @@ def _master_step(bundle) -> str:
 
 
 def _slides_step(bundle) -> str:
+    stale = brandkit.stale_note(bundle, "slides", "fz.py build <bundle> slides")
+    if stale:
+        return stale
     if bundle.manifest["stages"].get("slides", {}).get("status") == "built":
         return f"Done: editor_kit/slides/{bundle.manifest['video']['id']}_slides.pptx."
     return "Next: `fz.py build <bundle> slides`."
@@ -81,6 +84,9 @@ def _visuals_step(bundle) -> str:
     from .bundle import read_json
     from .visuals import diagrams_to_draw, missing_images
 
+    stale = brandkit.stale_note(bundle, "visuals", "fz.py build <bundle> visuals")
+    if stale:
+        return stale
     if bundle.manifest["stages"].get("visuals", {}).get("status") == "built":
         return "Done: images, diagrams and storyboards are in editor_kit/ (see visuals.html)."
     from .animations import missing_ai, to_specify
@@ -142,13 +148,16 @@ def _cheatsheet_step(bundle) -> str:
 
     if not bundle.manifest.get("brand"):
         return brandkit.ASK
+    stale = brandkit.stale_note(bundle, "cheatsheet", "fz.py build <bundle> cheatsheet")
+    if stale:
+        return stale
     stage = bundle.manifest["stages"].get("cheatsheet", {}).get("status")
     if stage is None:
         return ("Next: Cheatsheet. Read `fz.py show <bundle> sources <video>` for each Video, start from "
                 "`fz.py draft <bundle> cheatsheet all <file>`, then `fz.py submit <bundle> cheatsheet <file>`.")
-    if stage != "built":
-        return "Next: build the Cheatsheet with `fz.py build <bundle> cheatsheet`."
     missing = missing_images(bundle)
+    if stage != "built" and not missing:
+        return "Next: build the Cheatsheet with `fz.py build <bundle> cheatsheet`."
     if missing:
         return (f"Next: {len(missing)} cheatsheet image{'s' if len(missing) != 1 else ''} to generate "
                 "(`fz.py show <bundle> cheatsheet-image-prompts`), then `fz.py build <bundle> cheatsheet`.")

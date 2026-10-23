@@ -200,6 +200,14 @@ def check_data(data: dict, read) -> list:
     keys = (full.get("illustration") or {}).get("key_colors") or []
     if not keys or not all(HEX.match(str(k)) for k in keys):
         problems.append("brand.yaml: illustration.key_colors must list hex colours like \"#00FF00\".")
+    from .animations import ENTRANCES
+
+    for role, how in ((full.get("motion") or {}).get("entrances") or {}).items():
+        if how not in ENTRANCES:
+            problems.append(f"brand.yaml: motion.entrances.{role} must be one of {', '.join(ENTRANCES)}.")
+    negative = (full.get("illustration") or {}).get("negative") or []
+    if not isinstance(negative, list) or not all(isinstance(n, str) and n.strip() for n in negative):
+        problems.append("brand.yaml: illustration.negative must list short phrases, e.g. [photorealism, clutter].")
     for i, c in enumerate(full["slides"]["title"]["colors"]):
         color_ok(f"slides.title.colors[{i}]", c)
 
@@ -227,8 +235,18 @@ def check_data(data: dict, read) -> list:
         for ref in c.get("references") or []:
             need(f"characters.{c.get('id')}.references", "characters", ref)
     slides = full["slides"]
-    if need("slides.template", "slides.template", slides.get("template")) and need("slides.background", "slides.background", slides.get("background")):
-        problems += _check_template(reader("slides.template")(slides["template"]), reader("slides.background")(slides["background"]))
+    from .slides import LAYOUTS
+
+    backgrounds = {}
+    if need("slides.background", "slides.background", slides.get("background")):
+        backgrounds["slides.background"] = reader("slides.background")(slides["background"])
+    for layout, rel in (slides.get("backgrounds") or {}).items():
+        if layout not in LAYOUTS:
+            problems.append(f"brand.yaml: slides.backgrounds: '{layout}' is not a slide layout ({', '.join(LAYOUTS)}).")
+        elif need(f"slides.backgrounds.{layout}", f"slides.backgrounds.{layout}", rel):
+            backgrounds[f"slides.backgrounds.{layout}"] = reader(f"slides.backgrounds.{layout}")(rel)
+    if need("slides.template", "slides.template", slides.get("template")) and backgrounds:
+        problems += _check_template(reader("slides.template")(slides["template"]), backgrounds)
     problems += _check_areas(slides)
     for fg, bg in (("on_primary", "primary"), ("ink", "surface"), ("ink", "surface_alt"), ("code_text", "code_bg")):
         if fg in colors and bg in colors:
@@ -238,7 +256,8 @@ def check_data(data: dict, read) -> list:
     return problems
 
 
-def _check_template(template: bytes, background: bytes) -> list:
+def _check_template(template: bytes, backgrounds: dict) -> list:
+    """backgrounds: {"slides.background": bytes, "slides.backgrounds.title": bytes, …}, each checked against the slide shape."""
     import io
     import zipfile
 
@@ -254,11 +273,12 @@ def _check_template(template: bytes, background: bytes) -> list:
     if not any(b'type="blank"' in d for d in layouts):
         problems.append("slides.template needs a Blank layout (slides are drawn on it).")
     m = re.search(r'<p:sldSz cx="(\d+)" cy="(\d+)"', pres)
-    size = image_size(background)
-    if size is None:
-        problems.append("slides.background must be a PNG or JPEG.")
-    elif m and abs(size[0] / size[1] - int(m.group(1)) / int(m.group(2))) > 0.02:
-        problems.append(f"slides.background is {size[0]}×{size[1]}, which doesn't match the template's slide shape; it would be stretched.")
+    for where, background in backgrounds.items():
+        size = image_size(background)
+        if size is None:
+            problems.append(f"{where} must be a PNG or JPEG.")
+        elif m and abs(size[0] / size[1] - int(m.group(1)) / int(m.group(2))) > 0.02:
+            problems.append(f"{where} is {size[0]}×{size[1]}, which doesn't match the template's slide shape; it would be stretched.")
     return problems
 
 
@@ -296,14 +316,41 @@ def attach(bundle, source) -> dict:
         kits.snapshot(BRAND, bundle.root, manifest, files)
         rec = {"source": "attached", "id": data["brand"]["id"], "version": manifest[BRAND.version_key],
                "origin": Path(source).name}
-    old = bundle.manifest.get("brand")
     rec.update(attached_at=now(), overrides={})
     bundle.manifest["brand"] = rec
-    stale = [s for s in STAGES if s in bundle.manifest.get("stages", {})] if old != rec else []
-    for s in stale:
-        bundle.manifest["stages"].pop(s)
+    stale = mark_stale(bundle)
     bundle.log(f"brand kit {rec['id']} {rec['version']} ({rec['source']})")
     return dict(rec, stale=stale)
+
+
+def signature(bundle) -> str:
+    """The Brand Kit a stage is built from, as people read it: "acme 2026.10.21.1 + colors.primary=#FF6600"."""
+    rec = bundle.manifest.get("brand") or {}
+    if not rec:
+        return ""
+    sig = f"{rec['id']} {rec['version']}"
+    overrides = sorted((rec.get("overrides") or {}).items())
+    return sig + ("".join(f" + {p}={o['value']}" for p, o in overrides) if overrides else "")
+
+
+def mark_stale(bundle) -> list:
+    """Stages built from another Brand Kit than the bundle's now: kept, marked to rebuild, with the kit they used."""
+    now_ = signature(bundle)
+    stale = []
+    for s in STAGES:
+        stage = bundle.manifest.get("stages", {}).get(s)
+        if stage and stage.get("status") in ("built", "stale") and stage.get("brand", "") != now_:
+            stage.update(status="stale", brand=stage.get("brand") or "none recorded")
+            stale.append(s)
+    return stale
+
+
+def stale_note(bundle, stage: str, command: str) -> str:
+    """The status line for a stage built with an older Brand Kit, or "" if it is not."""
+    st = bundle.manifest.get("stages", {}).get(stage, {})
+    if st.get("status") != "stale":
+        return ""
+    return f"Next: rebuild: built with an older Brand Kit ({st.get('brand')}); now {signature(bundle)}. `{command}`"
 
 
 def override(bundle, path: str, value, note: str = "") -> dict:
@@ -314,10 +361,14 @@ def override(bundle, path: str, value, note: str = "") -> dict:
         raise Rejected(f"'{path}' is not a single Brand Kit value. See `fz.py show <bundle> brand` for the values you can change.")
     if path.startswith("colors.") and not HEX.match(str(value)):
         raise Rejected(f"{path} must be a hex colour like \"#0A59C8\".")
+    if path.startswith("motion.entrances."):
+        from .animations import ENTRANCES
+
+        if value not in ENTRANCES:
+            raise Rejected(f"{path} must be one of {', '.join(ENTRANCES)}.")
     rec = bundle.manifest["brand"]
     rec.setdefault("overrides", {})[path] = {"value": value, "was": current, "source": "prompt", "note": note, "at": now()}
-    for s in [s for s in STAGES if s in bundle.manifest.get("stages", {})]:
-        bundle.manifest["stages"].pop(s)
+    mark_stale(bundle)
     bundle.log(f"brand override {path} = {value}")
     return rec["overrides"][path]
 
@@ -335,5 +386,9 @@ def describe(bundle) -> str:
                                       for r, f in brand.data["fonts"].items() if isinstance(f, dict)))
     out.append(f"Slides: template {brand.get('slides.template')}, background {brand.get('slides.background')}, "
                f"label \"{brand.get('slides.label.text')}\", titles {brand.get('slides.title.case')}")
+    by_layout = brand.get("slides.backgrounds") or {}
+    out.append("Slide backgrounds by layout: " + (", ".join(f"{k} {v}" for k, v in by_layout.items()) or "none"))
     out.append("Characters: " + (", ".join(c["id"] for c in brand.data.get("characters") or []) or "none"))
+    out.append("Images avoid: " + (", ".join(brand.get("illustration.negative") or []) or "nothing listed"))
+    out.append("Animation entrances: " + ", ".join(f"{k} {v}" for k, v in (brand.get("motion.entrances") or {}).items()))
     return "\n".join(out)

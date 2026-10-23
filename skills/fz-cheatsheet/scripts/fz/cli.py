@@ -170,10 +170,13 @@ def cmd_build(args) -> None:
         print(f"Built editor_kit/editor_guide.md and .html, markers.xml (Premiere) and cue_sheet.csv: {result['events']} Visual Event(s), "
               f"about {result['minutes']:.1f} min (estimated).")
     elif args.what == "visuals":
-        result = visuals.build(bundle)
+        result = visuals.build(bundle, without_images=args.without_images)
         bundle.save()
         note = (f" {result['png_missing']} diagram(s) were drawn as SVG only: this sandbox has no matplotlib for PNG."
                 if result["png_missing"] else "")
+        if result["missing"]:
+            note += (f" {result['missing']} image{'s' if result['missing'] != 1 else ''} still to generate: AI elements are dashed "
+                     "placeholders; generate them and build again (`fz.py status <bundle>` lists them).")
         print(f"Checked {result['images']} image(s), drew or checked {result['diagrams']} diagram(s), checked {result['storyboards']} "
               f"storyboard(s); wrote editor_kit/visuals.html and refreshed the editor guide. Rebuild the slides to place new images.{note}")
     elif args.what == "slides":
@@ -471,6 +474,8 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("build", help="Build a deliverable from submitted content")
     p.add_argument("bundle")
     p.add_argument("what", choices=["review", "master", "slides", "visuals", "teleprompter", "editor-kit", "quiz", "cheatsheet"])
+    p.add_argument("--without-images", action="store_true",
+                   help="visuals: build what code can draw now, with placeholders for images not generated yet")
     p.set_defaults(func=cmd_build)
 
     p = sub.add_parser("gate", help="Record a Gate decision")

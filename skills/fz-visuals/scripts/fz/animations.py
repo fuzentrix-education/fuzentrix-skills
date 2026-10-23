@@ -28,6 +28,18 @@ from .bundle import read_json, write_json
 from .problems import Rejected
 
 SPEC_VERSION = "1.0"
+# How an element can enter: the Brand Kit picks one per kind of element (motion.entrances), the motion workflow
+# animates it, and the step sheet tells the Video Editor how to do it by hand in Premiere.
+ENTRANCES = {
+    "cut": "Cut in",
+    "fade": "Opacity 0 → 100 %",
+    "fade_up": "Opacity 0 → 100 % while rising 20 px",
+    "pop": "Scale 85 → 100 % with Opacity 0 → 100 %",
+    "draw": "Linear Wipe in the direction it points",
+    "wipe": "Linear Wipe left to right",
+    "type": "Linear Wipe left to right, one line at a time",
+    "slide_in": "Position in from the nearest frame edge",
+}
 FPS = 30
 DEFAULT_DURATION = 3
 MAX_STEPS = 8
@@ -129,6 +141,7 @@ def draft(bundle) -> dict:
     from .visuals import require_final
 
     master = require_final(bundle, "Animations")
+    brand = brandkit.load(bundle)
     have = specs(bundle)
     out = []
     for seg, e in animation_events(master):
@@ -136,8 +149,12 @@ def draft(bundle) -> dict:
             out.append(have[e["id"]])
             continue
         template = e.get("template") if e.get("template") in TEMPLATES or e.get("template") in ILLUSTRATED else ""
+        t = diagrams.theme_of(brand, e.get("layout"))
         entry = {"event": e["id"], "template": template, "description": e["description"], "trigger": e["trigger"],
-                 "duration_sec": e.get("duration_sec") or DEFAULT_DURATION, "spoken": _spoken(seg)}
+                 "duration_sec": e.get("duration_sec") or DEFAULT_DURATION, "spoken": _spoken(seg),
+                 # where it may draw: [x, y, width, height] on the 1920×1080 frame, and where the Instructor stands
+                 "layout": e.get("layout"), "area": [t.left, t.top, t.right - t.left, t.bottom - t.top],
+                 "presenter_area": _presenter(brand)}
         if template in ILLUSTRATED:
             entry["elements"] = []
         else:
@@ -166,7 +183,7 @@ def submit(bundle, data: dict) -> int:
         if ev in seen:
             problems.append(f"{label}: {ev} is given twice.")
         seen.add(ev)
-        problems += _check(bundle, a, label, events[ev][0], index[events[ev][0]["id"]]["words"], brand)
+        problems += _check(bundle, a, label, events[ev][0], index[events[ev][0]["id"]]["words"], brand, events[ev][1].get("layout"))
     if problems:
         raise Rejected(problems)
     for a in given:
@@ -180,7 +197,7 @@ def submit(bundle, data: dict) -> int:
     return len(given)
 
 
-def _check(bundle, a: dict, label: str, seg: dict, words: list, brand) -> list:
+def _check(bundle, a: dict, label: str, seg: dict, words: list, brand, layout=None) -> list:
     from . import editor
 
     template = a.get("template")
@@ -201,10 +218,11 @@ def _check(bundle, a: dict, label: str, seg: dict, words: list, brand) -> list:
         spec = a.get("diagram") or {}
         if spec.get("type") != TEMPLATES[template]:
             return problems + [f"{label}: the {template} template draws a '{TEMPLATES[template]}' diagram; set diagram.type to it."]
-        found = diagrams.check(spec, label, brand)
+        t = diagrams.theme_of(brand, layout)  # the diagram fits the part of the frame its layout leaves it
+        found = diagrams.check(spec, label, t)
         if found:
             return problems + found
-        problems += _check_shown(label, diagrams.element_ids(spec, brand), steps)
+        problems += _check_shown(label, diagrams.element_ids(spec, t), steps)
     previous, prev_n = -1, None
     for n, st in enumerate(steps, 1):
         if not st.get("trigger"):
@@ -295,10 +313,10 @@ def _check_elements(elements: list, label: str, brand) -> list:
     return problems
 
 
-def check_ai(bundle, master: dict, brand) -> list:
-    """Problems with the saved illustrations: missing, unreadable, or not cut out."""
+def check_ai(bundle, master: dict, brand, allow_missing: bool = False) -> list:
+    """Problems with the saved illustrations: missing (unless allowed), unreadable, or not cut out."""
     problems, key = [], _rgb(key_color(brand))
-    for e, el in missing_ai(bundle, master):
+    for e, el in [] if allow_missing else missing_ai(bundle, master):
         a = specs(bundle)[e["id"]]
         problems.append(f"{naming.relative(bundle, ai_file(bundle, e['id'], a['template'], el['id']))} is missing: generate it from "
                         "`fz.py show <bundle> animation-prompts` and save it there.")
@@ -330,12 +348,20 @@ def _ai_prims(bundle, e: dict, a: dict, el: dict, brand) -> tuple:
     return ("image", x, y, w, h, png.write(small)), png.write(png.on_frame(small, x, y, diagrams.W, diagrams.H))
 
 
-def _illustrated_elements(bundle, e: dict, a: dict, t) -> list:
-    """Like diagrams.elements, for an illustrated animation; AI elements also carry their full-frame layer."""
+def _illustrated_elements(bundle, e: dict, a: dict, t, placeholders: bool = False) -> list:
+    """Like diagrams.elements, for an illustrated animation; AI elements also carry their full-frame layer.
+    With placeholders, an AI element not generated yet is a dashed box with its description, in its place."""
     out = []
     for z, el in enumerate(a["elements"], 1):
-        item = {"id": el["id"], "role": el["kind"], "z": z, "label": el.get("text") or el.get("describe") or el["id"]}
-        if el["kind"] == "ai":
+        role = ("character" if el.get("character") else "illustration") if el["kind"] == "ai" else el["kind"]
+        item = {"id": el["id"], "role": role, "z": z, "label": el.get("text") or el.get("describe") or el["id"]}
+        if el["kind"] == "ai" and placeholders and not ai_file(bundle, e["id"], a["template"], el["id"]).exists():
+            x, y, w, h = el["place"]
+            size = t.size_for(el["describe"], w - 40, t.sizes["caption"], False) or t.min_size
+            item.update(prims=[("dashed", x, y, w, h, t.c("label"), 20),
+                               ("text", x + w / 2, y + h / 2, el["describe"], size, t.c("label"), False, "middle")],
+                        source="ai", placeholder=True)
+        elif el["kind"] == "ai":
             prim, layer = _ai_prims(bundle, e, a, el, t.brand)
             item.update(prims=[prim], layer=layer, source="ai")
         elif el["kind"] == "arrow":
@@ -352,20 +378,37 @@ def _illustrated_elements(bundle, e: dict, a: dict, t) -> list:
 
 # --- build -----------------------------------------------------------------------------
 
-def build_all(bundle, master: dict, brand) -> list:
-    """Draw every specified animation into the Editor Kit. Returns (seg, event, preview file) rows for the gallery."""
+def build_all(bundle, master: dict, brand, placeholders: bool = False) -> list:
+    """Draw every specified animation into the Editor Kit. Returns (seg, event, preview file) rows for the gallery.
+    With placeholders, AI elements not generated yet are drawn as labelled dashed boxes."""
     from . import editor
 
     have = specs(bundle)
     timeline = {t["event"]["id"]: t["start"] for t in editor._timeline(bundle, master)}
     index = editor.spoken_index(bundle, master)
+    _remove_stale(bundle, {folder(bundle, e["id"], have[e["id"]]["template"]).name
+                           for _, e in animation_events(master) if e["id"] in have})
     rows = []
     for seg, e in animation_events(master):
         a = have.get(e["id"])
         if a is None:
             continue
-        rows.append((seg, e, _build_one(bundle, master, seg, e, a, brand, timeline[e["id"]], index[seg["id"]])))
+        rows.append((seg, e, _build_one(bundle, master, seg, e, a, brand, timeline[e["id"]], index[seg["id"]], placeholders)))
     return rows
+
+
+def _remove_stale(bundle, current: set) -> None:
+    """Folders of animations that are gone or now use another template. One holding generated AI images is kept,
+    so nothing generated is lost."""
+    import shutil
+
+    root = naming.kit_dir(bundle, "animations")
+    if not root.exists():
+        return
+    for old in root.iterdir():
+        if old.is_dir() and old.name.startswith(f"{naming.video_id(bundle)}_") and old.name not in current:
+            if not any((old / "ai").glob("*")):
+                shutil.rmtree(old)
 
 
 def _times(bundle, e: dict, a: dict, start: float, seg_index: dict, brand) -> list:
@@ -387,11 +430,17 @@ def _times(bundle, e: dict, a: dict, start: float, seg_index: dict, brand) -> li
     return out
 
 
-def _build_one(bundle, master: dict, seg: dict, e: dict, a: dict, brand, event_start: float, seg_index: dict):
+def entrance(brand, role: str) -> str:
+    chosen = brand.get("motion.entrances") or {}
+    return chosen.get(role) or chosen.get("default") or "fade"
+
+
+def _build_one(bundle, master: dict, seg: dict, e: dict, a: dict, brand, event_start: float, seg_index: dict,
+               placeholders: bool = False):
     vid = naming.video_id(bundle)
     base = folder(bundle, e["id"], a["template"])
     base.mkdir(parents=True, exist_ok=True)
-    t = diagrams.theme_of(brand)
+    t = diagrams.theme_of(brand, e.get("layout"))
     starts = _times(bundle, e, a, event_start, seg_index, brand)
     hold = (brand.get("motion.durations") or {}).get("min_hold", 1.0)
     end = max(starts[0] + (e.get("duration_sec") or DEFAULT_DURATION), starts[-1] + hold)
@@ -399,12 +448,14 @@ def _build_one(bundle, master: dict, seg: dict, e: dict, a: dict, brand, event_s
 
     elements, element_rows, state_files, preview = [], [], [], None
     if a["template"] != CUSTOM:
-        elements = _illustrated_elements(bundle, e, a, t) if a["template"] in ILLUSTRATED else diagrams.elements(a["diagram"], t)
+        elements = (_illustrated_elements(bundle, e, a, t, placeholders) if a["template"] in ILLUSTRATED
+                    else diagrams.elements(a["diagram"], t))
         for el in elements:
             name = f"{vid}_{e['id']}_L{el['z']:02d}_{el['id'].replace(':', '-')}"
             files = _draw(el["prims"], base / "elements" / name, t, layer=el.get("layer"))
             element_rows.append(dict({k: el[k] for k in ("id", "role", "label", "z")}, bbox=_bbox(el["prims"]),
-                                     source=el.get("source", "code"), files=files))
+                                     source=el.get("source", "code"), entrance=entrance(brand, el["role"]), files=files,
+                                     **({"placeholder": True} if el.get("placeholder") else {})))
         shown = []
         for k, st in enumerate(a["steps"], 1):
             shown += st["show"]
@@ -420,7 +471,7 @@ def _build_one(bundle, master: dict, seg: dict, e: dict, a: dict, brand, event_s
                       "enter": list(st.get("show") or []), "exit": [], "describe": st.get("describe") or "",
                       "shows": " · ".join(labels[i] for i in st.get("show") or []) or st.get("describe", ""),
                       "state": state_files[n - 1] if state_files else None})
-    _step_sheet(base, e, a, steps, element_rows)
+    _step_sheet(base, e, a, steps, element_rows, brand)
     spec = {
         "spec_version": SPEC_VERSION,
         "generator": {"skill_version": SKILL_VERSION},
@@ -467,7 +518,7 @@ def _draw(prims: list, stem, t, size=None, layer: bytes = None) -> dict:
 def _bbox(prims: list) -> list:
     xs, ys = [], []
     for p in prims:
-        if p[0] == "rect":
+        if p[0] in ("rect", "dashed"):
             xs += [p[1], p[1] + p[3]]
             ys += [p[2], p[2] + p[4]]
         elif p[0] == "text":
@@ -484,6 +535,10 @@ def _bbox(prims: list) -> list:
         elif p[0] == "image":
             xs += [p[1], p[1] + p[3]]
             ys += [p[2], p[2] + p[4]]
+        elif p[0] == "curve":
+            cx, cy = diagrams.curve_control(*p[1:5], p[6])
+            xs += [p[1], p[3], cx]
+            ys += [p[2], p[4], cy]
     if not xs:
         return [0, 0, 0, 0]
     return [round(min(xs)), round(min(ys)), round(max(xs) - min(xs)), round(max(ys) - min(ys))]
@@ -496,15 +551,21 @@ def _scaled(prims: list, f: float, ox: float, oy: float) -> list:
         if k == "rect":
             _, x, y, w, h, fill, stroke, r = p
             out.append(("rect", x * f + ox, y * f + oy, w * f, h * f, fill, stroke, r * f))
-        elif k == "text":
-            _, x, y, text, size, col, bold, anchor = p
-            out.append(("text", x * f + ox, y * f + oy, text, round(size * f, 1), col, bold, anchor))
+        elif k == "dashed":
+            _, x, y, w, h, stroke, r = p
+            out.append(("dashed", x * f + ox, y * f + oy, w * f, h * f, stroke, r * f))
+        elif k == "text":  # an optional 9th item is the font role (code)
+            _, x, y, text, size, col, bold, anchor = p[:8]
+            out.append(("text", x * f + ox, y * f + oy, text, round(size * f, 1), col, bold, anchor) + tuple(p[8:]))
         elif k in ("arrow", "line"):
             _, x1, y1, x2, y2, col = p
             out.append((k, x1 * f + ox, y1 * f + oy, x2 * f + ox, y2 * f + oy, col))
         elif k == "poly":
             _, pts, fill, stroke = p
             out.append(("poly", [(x * f + ox, y * f + oy) for x, y in pts], fill, stroke))
+        elif k == "curve":
+            _, x1, y1, x2, y2, col, bend = p
+            out.append(("curve", x1 * f + ox, y1 * f + oy, x2 * f + ox, y2 * f + oy, col, bend))
         elif k == "image":
             _, x, y, w, h, data = p
             out.append(("image", x * f + ox, y * f + oy, w * f, h * f, data))
@@ -535,8 +596,9 @@ def _clock(seconds: float) -> str:
     return f"{int(seconds // 60):02d}:{seconds % 60:04.1f}"
 
 
-def _step_sheet(base, e: dict, a: dict, steps: list, element_rows: list) -> None:
+def _step_sheet(base, e: dict, a: dict, steps: list, element_rows: list, brand) -> None:
     files = {r["id"]: r["files"].get("png") or r["files"]["svg"] for r in element_rows}
+    enters = {r["id"]: r["entrance"] for r in element_rows}
     with open(base / "step_sheet.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(["step", "trigger", "start", "start_sec", "offset_sec", "duration_sec", "shows", "state", "layers"])
@@ -550,9 +612,18 @@ def _step_sheet(base, e: dict, a: dict, steps: list, element_rows: list) -> None
     if element_rows:
         md += ["Stack the layers in `elements/` on the timeline in order (L01 at the bottom): each is a full 1920×1080 transparent frame, "
                "so they line up exactly. Or cut between the frames in `states/`.", ""]
-    md += ["| Step | Starts on | Time | Hold | Shows | Frame |", "|---|---|---|---|---|---|"]
+    md += ["| Step | Starts on | Time | Hold | Shows | Frame | Enters |", "|---|---|---|---|---|---|---|"]
     for st in steps:
         state = (st["state"] or {}).get("png") or (st["state"] or {}).get("svg") or ""
+        how = ", ".join(sorted({enters[i] for i in st["enter"] if i in enters}))
         md.append(f"| {st['n']} | {('“' + st['trigger'] + '”') if st['trigger'] else '(spread evenly)'} | {_clock(st['start_sec'])} | "
-                  f"{st['duration_sec']} s | {st['shows']} | {('`' + state + '`') if state else ''} |")
+                  f"{st['duration_sec']} s | {st['shows']} | {('`' + state + '`') if state else ''} | {how} |")
+    used = sorted(set(enters.values()))
+    if used:
+        m = brand.get("motion") or {}
+        enter_s, ease = (m.get("durations") or {}).get("enter", 0.4), (m.get("easing") or {}).get("enter", "")
+        md += ["", "## How elements enter", ""]
+        md += [f"- **{name}**: {ENTRANCES.get(name, name)}, {enter_s} s" + (f", {ease}" if ease else "") for name in used]
+        if m.get("stagger"):
+            md.append(f"- Elements entering in the same step start {m['stagger']} s apart, in layer order.")
     (base / "step_sheet.md").write_text("\n".join(md) + "\n", encoding="utf-8")

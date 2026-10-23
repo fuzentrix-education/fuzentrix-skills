@@ -18,12 +18,13 @@ SHAPES = ("process", "decision", "terminal", "io")
 class Theme:
     """The Brand Kit's diagram style: colours, font, sizes and the drawing area."""
 
-    def __init__(self, brand):
-        self.brand = brand
+    def __init__(self, brand, layout: str = None):
+        self.brand, self.layout = brand, layout
         d = brand.get("diagrams")
         self.d = d
-        a = d["safe_area"]
+        a = (d.get("regions") or {}).get(layout) or d["safe_area"]
         self.left, self.right, self.top, self.bottom = a["left"], a["right"], a["top"], a["bottom"]
+        self.narrowed = a["right"] - a["left"] < d["safe_area"]["right"] - d["safe_area"]["left"]
         self.min_size, self.flow_gap, self.sizes = d["min_text"], d["flow_gap"], d["sizes"]
         self.role = d.get("font", "heading")
         f = brand.font(self.role)
@@ -49,9 +50,27 @@ class Theme:
             size -= 2
         return size if size >= self.min_size else None
 
+    def room(self, width: float, bold: bool = True) -> int:
+        """About how many characters fit in `width` at the smallest readable size."""
+        if self.font_file:
+            return self.brand.measure(self.role).capacity(self.min_size, width)
+        return max(1, int(width / (self.min_size * self.d["char_width"]["bold" if bold else "regular"])))
 
-def theme_of(brand) -> Theme:
-    return brand if isinstance(brand, Theme) else Theme(brand)
+    def too_long(self, label: str, what: str, text: str, width: float, start: float, bold: bool = True) -> list:
+        """[] if the text fits at a readable size; otherwise a problem saying how much fits, and where more would."""
+        if self.size_for(text, width, start, bold):
+            return []
+        more = (f" in the {self.layout} layout (fullscreen_cutaway gives the animation the whole frame)"
+                if self.narrowed else "")
+        return [f"{label}: {what + ' ' if what else ''}'{text}' is too long: about {self.room(width, bold)} characters fit there{more}. "
+                "Shorten it, or use fewer boxes."]
+
+
+def theme_of(brand, layout: str = None) -> Theme:
+    """The diagram style, sized to the region of the frame a Visual Event's layout gives it."""
+    if isinstance(brand, Theme):
+        return brand if layout is None or layout == brand.layout else Theme(brand.brand, layout)
+    return Theme(brand, layout)
 
 
 # --- checks ----------------------------------------------------------------------------
@@ -63,18 +82,18 @@ def check(spec: dict, label: str, brand) -> list:
     if kind not in TYPES:
         return [f"{label}: type must be one of {', '.join(TYPES)}."]
     problems = []
-    too_long = lambda text, width, start: t.size_for(text, width, start) is None
     if kind == "flow":
         steps = spec.get("steps") or []
         if not 2 <= len(steps) <= 6:
             problems.append(f"{label}: a flow needs 2–6 steps (has {len(steps)}).")
         else:
             box_w = (RIGHT - LEFT - FLOW_GAP * (len(steps) - 1)) / len(steps)
-            problems += [f"{label}: step '{s}' is too long for a diagram box; keep it to a few words." for s in steps if too_long(s, box_w - 30, t.sizes["box"])]
+            problems += [p for s in steps for p in t.too_long(label, "step", s, box_w - 30, t.sizes["box"])]
         labels = spec.get("labels") or []
         if labels and len(labels) != len(steps) - 1:
             problems.append(f"{label}: 'labels' needs one label per arrow ({len(steps) - 1}), or leave it out.")
-        problems += [f"{label}: arrow label '{l}' is too long; one or two short words." for l in labels if not t.fits(l, t.sizes["label"], FLOW_GAP - 16, False)]
+        problems += [f"{label}: arrow label '{l}' is too long: about {t.room(FLOW_GAP - 16, False)} characters fit; one or two short words."
+                     for l in labels if not t.fits(l, t.sizes["label"], FLOW_GAP - 16, False)]
     elif kind == "table":
         cols, rows = spec.get("columns") or [], spec.get("rows") or []
         if not 1 <= len(cols) <= 6 or not 1 <= len(rows) <= 8:
@@ -83,14 +102,14 @@ def check(spec: dict, label: str, brand) -> list:
             problems.append(f"{label}: every row needs {len(cols)} cells.")
         else:
             cell_w = (RIGHT - LEFT) / len(cols) - 24
-            problems += [f"{label}: cell '{c}' is too long for a diagram box." for row in [cols] + rows for c in row if too_long(c, cell_w, t.sizes["table_header"])]
+            problems += [p for row in [cols] + rows for c in row for p in t.too_long(label, "cell", c, cell_w, t.sizes["table_header"])]
     elif kind == "tree":
         children = spec.get("children") or []
         if not spec.get("root") or not 1 <= len(children) <= 6:
             problems.append(f"{label}: a tree needs a root and 1–6 children.")
         else:
             box_w = (RIGHT - LEFT - 30 * (len(children) - 1)) / len(children)
-            problems += [f"{label}: '{c}' is too long for a diagram box." for c in children if too_long(c, box_w - 24, t.sizes["tree_child"])]
+            problems += [p for c in children for p in t.too_long(label, "", c, box_w - 24, t.sizes["tree_child"])]
     elif kind == "compare":
         half = (RIGHT - LEFT - 40) / 2
         for side in ("left", "right"):
@@ -98,14 +117,14 @@ def check(spec: dict, label: str, brand) -> list:
             if not part.get("title") or not 1 <= len(part.get("items") or []) <= 6:
                 problems.append(f"{label}: '{side}' needs a title and 1–6 items.")
             else:
-                problems += [f"{label}: '{i}' is too long for a diagram box." for i in part["items"] if t.size_for(i, half - 90, t.sizes["compare_item"], False) is None]
+                problems += [p for i in part["items"] for p in t.too_long(label, "item", i, half - 90, t.sizes["compare_item"], False)]
     elif kind == "image":
         if not str(spec.get("prompt", "")).strip():
             problems.append(f"{label}: an image diagram needs a 'prompt' for the image model.")
     elif kind in MORE:
         problems += MORE[kind][0](spec, label, t)
-    if spec.get("title") and too_long(spec["title"], RIGHT - LEFT, t.sizes["title"]):
-        problems.append(f"{label}: the title is too long.")
+    if spec.get("title"):
+        problems += t.too_long(label, "title", spec["title"], RIGHT - LEFT, t.sizes["title"])
     return problems
 
 
@@ -216,7 +235,7 @@ def _parts(spec: dict, t: Theme) -> list:
 # --- more types: each is (check, draw) ----------------------------------------------------
 
 def _fit(t, text, width, start, label, what, bold=True) -> list:
-    return [] if t.size_for(text, width, start, bold) else [f"{label}: {what} '{text}' is too long; keep it to a few words."]
+    return t.too_long(label, what, text, width, start, bold)
 
 
 def _flowchart_geometry(spec, t, top):
@@ -362,31 +381,44 @@ def _draw_timeline(spec, t, add, top):
                                                         t.size_for(e["label"], w, z["timeline_label"], False), c("text"), False, "middle"))
 
 
+def _cycle_geometry(n: int, t, top) -> tuple:
+    """Centre, radius and box width: boxes shrink as steps crowd, so every arrow keeps room."""
+    import math as m
+    r = min((t.bottom - top) / 2 - 70, 380)
+    chord = 2 * r * m.sin(m.pi / n)
+    return ((t.left + t.right) / 2, (top + t.bottom) / 2), r, min(260, chord - 120)
+
+
 def _check_cycle(spec, label, t):
     steps = spec.get("steps") or []
     if not 3 <= len(steps) <= 6:
         return [f"{label}: a cycle needs 3–6 steps (has {len(steps)})."]
-    return [p for s_ in steps for p in _fit(t, s_, 230, t.sizes["cycle"], label, "step")]
+    _, _, w = _cycle_geometry(len(steps), t, t.top + (110 if spec.get("title") else 0))
+    return [p for s_ in steps for p in _fit(t, s_, w - 30, t.sizes["cycle"], label, "step")]
 
 
 def _draw_cycle(spec, t, add, top):
     import math as m
     c, z, steps = t.c, t.sizes, spec["steps"]
-    cx, cy = (t.left + t.right) / 2, (top + t.bottom) / 2
-    r = min((t.bottom - top) / 2 - 70, 380)
+    (cx, cy), r, w = _cycle_geometry(len(steps), t, top)
     pts = [(cx + r * m.cos(m.radians(-90 + 360 * i / len(steps))), cy + r * m.sin(m.radians(-90 + 360 * i / len(steps)))) for i in range(len(steps))]
     for i, (x, y) in enumerate(pts):
-        add(f"node:{i + 1}", "node", steps[i], ("rect", x - 130, y - 50, 260, 100, c("box"), None, 24))
-        add(f"node:{i + 1}", "node", steps[i], ("text", x, y + 11, steps[i], t.size_for(steps[i], 230, z["cycle"]), c("box_text"), True, "middle"))
+        add(f"node:{i + 1}", "node", steps[i], ("rect", x - w / 2, y - 50, w, 100, c("box"), None, 24))
+        add(f"node:{i + 1}", "node", steps[i], ("text", x, y + 11, steps[i], t.size_for(steps[i], w - 30, z["cycle"]), c("box_text"), True, "middle"))
     for i, (x1, y1) in enumerate(pts):
         j = (i + 1) % len(pts)
         x2, y2 = pts[j]
         d = m.hypot(x2 - x1, y2 - y1) or 1
         ux, uy = (x2 - x1) / d, (y2 - y1) / d
-        # leave each box exactly at its edge (boxes are 260 × 100), with a small gap
-        clip = min(130 / abs(ux) if ux else 1e9, 50 / abs(uy) if uy else 1e9) + 14
-        add(f"edge:{i + 1}-{j + 1}", "edge", f"{steps[i]} → {steps[j]}",
-            ("arrow", x1 + ux * clip, y1 + uy * clip, x2 - ux * clip, y2 - uy * clip, c("arrow")))
+        # leave each box exactly at its edge (boxes are w × 100), with a small gap, curving outward
+        clip = min(w / 2 / abs(ux) if ux else 1e9, 50 / abs(uy) if uy else 1e9) + 14
+        sx, sy, ex, ey = x1 + ux * clip, y1 + uy * clip, x2 - ux * clip, y2 - uy * clip
+        bend = 0.25
+        mx, my = (sx + ex) / 2, (sy + ey) / 2
+        cx_, cy_ = mx - bend * (ey - sy), my + bend * (ex - sx)
+        if m.hypot(cx_ - cx, cy_ - cy) < m.hypot(mx - cx, my - cy):
+            bend = -bend
+        add(f"edge:{i + 1}-{j + 1}", "edge", f"{steps[i]} → {steps[j]}", ("curve", sx, sy, ex, ey, c("arrow"), bend))
 
 
 def _check_layers(spec, label, t):
@@ -512,6 +544,11 @@ MORE = {"flowchart": (_check_flowchart, _draw_flowchart), "timeline": (_check_ti
         "array": (_check_array, _draw_array)}
 
 
+def curve_control(x1, y1, x2, y2, bend) -> tuple:
+    """The control point of a curved arrow, the same one matplotlib's arc3 uses on our y-down frame."""
+    return (x1 + x2) / 2 - bend * (y2 - y1), (y1 + y2) / 2 + bend * (x2 - x1)
+
+
 # --- writers -------------------------------------------------------------------------------
 
 def to_svg(prims: list, brand, size=None) -> str:
@@ -527,6 +564,10 @@ def to_svg(prims: list, brand, size=None) -> str:
             _, x, y, w, h, fill, stroke, r = prim
             line = f' stroke="{stroke}" stroke-width="3"' if stroke else ""
             out.append(f'<rect x="{x:.0f}" y="{y:.0f}" width="{w:.0f}" height="{h:.0f}" rx="{r}" fill="{fill}"{line}/>')
+        elif kind == "dashed":  # where something still to be made will go
+            _, x, y, w, h, stroke, r = prim
+            out.append(f'<rect x="{x:.0f}" y="{y:.0f}" width="{w:.0f}" height="{h:.0f}" rx="{r}" fill="none" stroke="{stroke}" '
+                       'stroke-width="4" stroke-dasharray="18 12"/>')
         elif kind == "text":
             _, x, y, text, size, colour, bold, anchor = prim[:8]
             weight = "700" if bold else "400"
@@ -539,6 +580,11 @@ def to_svg(prims: list, brand, size=None) -> str:
         elif kind == "line":
             _, x1, y1, x2, y2, colour = prim
             out.append(f'<line x1="{x1:.0f}" y1="{y1:.0f}" x2="{x2:.0f}" y2="{y2:.0f}" stroke="{colour}" stroke-width="3"/>')
+        elif kind == "curve":
+            _, x1, y1, x2, y2, colour, bend = prim
+            cx, cy = curve_control(x1, y1, x2, y2, bend)
+            out.append(f'<path d="M{x1:.0f},{y1:.0f} Q{cx:.0f},{cy:.0f} {x2:.0f},{y2:.0f}" fill="none" stroke="{colour}" '
+                       f'stroke-width="6" marker-end="url(#arrow)"/>')
         elif kind == "image":
             import base64
             _, x, y, w, h, data = prim
@@ -585,6 +631,10 @@ def to_png(prims: list, path, brand, size=None) -> bool:
             _, x, y, w, h, fill, stroke, r = prim
             ax.add_patch(FancyBboxPatch((x, y), w, h, boxstyle=f"round,pad=0,rounding_size={r}", facecolor=fill,
                                         edgecolor=stroke or fill, linewidth=2 if stroke else 0, zorder=order))
+        elif kind == "dashed":
+            _, x, y, w, h, stroke, r = prim
+            ax.add_patch(FancyBboxPatch((x, y), w, h, boxstyle=f"round,pad=0,rounding_size={r}", facecolor="none",
+                                        edgecolor=stroke, linewidth=3, linestyle=(0, (6, 4)), zorder=order))
         elif kind == "text":
             _, x, y, text, size, colour, bold, anchor = prim[:8]
             extra = {"family": "monospace"} if len(prim) > 8 and prim[8] == "code" else font
@@ -596,6 +646,10 @@ def to_png(prims: list, path, brand, size=None) -> bool:
         elif kind == "line":
             _, x1, y1, x2, y2, colour = prim
             ax.plot([x1, x2], [y1, y2], color=colour, linewidth=2, zorder=order)
+        elif kind == "curve":
+            _, x1, y1, x2, y2, colour, bend = prim
+            ax.add_patch(FancyArrowPatch((x1, y1), (x2, y2), connectionstyle=f"arc3,rad={bend}", arrowstyle="-|>",
+                                         mutation_scale=30, color=colour, linewidth=4, zorder=order))
         elif kind == "image":
             import io
             import matplotlib.image as mpimg
@@ -631,6 +685,6 @@ def validate_all(specs: list, events: dict, brand) -> list:
         if ev in seen:
             problems.append(f"{label}: {ev} is given twice.")
         seen.add(ev)
-        problems += check(spec, label, brand)
+        problems += check(spec, label, theme_of(brand, events[ev].get("layout")))
     return problems
 

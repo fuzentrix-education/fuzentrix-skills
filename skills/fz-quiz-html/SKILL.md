@@ -11,7 +11,7 @@ It works on:
 - **workbooks from Fuzentrix Quiz**: their cells already mark code and bold text, so nothing is guessed;
 - **any other quiz workbook** in the LMS template: code is recognised by its look, and you can mark it more precisely first (step 3).
 
-Every file is built by `scripts/fz.py` in this skill's folder: `python <skill folder>/scripts/fz.py <command>`. If it prints a numbered problem list, fix every problem and run the same command again.
+Every file is built by `scripts/fz.py` in this skill's folder: `python <skill folder>/scripts/fz.py <command>`. If it prints a numbered problem list, fix every problem and run the same command again. If it stops with a Python error instead, that is a bug in the builder: tell the user the command and the error's last line, carry on with what doesn't need that command, and don't change the content to get round it.
 
 ## Steps
 

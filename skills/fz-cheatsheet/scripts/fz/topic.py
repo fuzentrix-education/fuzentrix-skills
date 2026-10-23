@@ -117,5 +117,13 @@ def describe_sources(bundle, video_id: str) -> str:
         slide = seg.get("slide") or {}
         if slide.get("title"):
             out.append(f"Slide: {slide['title']}" + (f" | {' | '.join(slide.get('bullets') or [])}" if slide.get("bullets") else ""))
+        for col in slide.get("columns") or []:
+            out.append(f"  Column {col.get('title', '')}: {' | '.join(col.get('bullets') or [])}")
+        for key, name in (("code", "Code"), ("output", "Output")):
+            if str(slide.get(key) or "").strip():
+                out += [f"  {name}:"] + [f"    {line}" for line in str(slide[key]).split("\n")]
+        for e in seg.get("visual_events") or []:
+            if e.get("kind") in ("code", "diagram"):
+                out.append(f"On screen ({e['kind']}): {e.get('description', '')}")
         out.append("")
     return "\n".join(out)

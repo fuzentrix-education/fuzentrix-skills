@@ -18,6 +18,9 @@ SCHEMAS = {
   category ({", ".join(CATEGORIES)}), severity ({", ".join(SEVERITIES)}), problem, suggestion.
   fix_text (optional): the corrected line in the Instructor's own Telugu-English style, if the
   fix changes what is said. Use "" to mean: delete this line.
+  For a missing line (a print the code needs), give after_line (a line of this Chunk) instead of
+  line and quote, and the line to add as fix_text. It is shown only (slide_only) when it follows a
+  slide_only line, otherwise spoken; set role to "spoken" or "slide_only" to choose.
 - code_checks (optional): for each code snippet, lines, status (run | read_only), note.
 - points_to_check: anything you could not resolve, for the Instructor to look at.""",
         {

@@ -36,6 +36,7 @@ logos: {}                   # e.g. full: logos/full.png, on_dark: logos/on_dark.
 slides:
   template: slides/template.pptx      # its Blank layout and slide size are used
   background: slides/background.png   # full-bleed on every slide
+  backgrounds: {}             # optional, per layout (title, agenda, bullets, definition, code, comparison, diagram, quote, image, summary), e.g. title: slides/title.png
   label: {text: "FUZENTRIX EDUCATION · {course}", size: 16, color: primary}
   title: {case: upper, colors: [ink, primary], size: 48, title_slide_size: 66}
   # fractions of the slide; content stays inside content_area, which must keep clear of presenter_area
@@ -55,6 +56,10 @@ slides:
 diagrams:
   font: heading
   safe_area: {left: 120, right: 1640, top: 120, bottom: 840}   # px on 1920×1080, clear of the presenter area
+  regions:                  # where a diagram or animation sits, by its Visual Event's layout (else safe_area)
+    fullscreen_cutaway: {left: 120, right: 1640, top: 120, bottom: 840}
+    overlay: {left: 120, right: 1640, top: 120, bottom: 840}
+    beside_instructor: {left: 120, right: 1100, top: 120, bottom: 840}   # the Instructor is on the right
   min_text: 28
   char_width: {bold: 0.58, regular: 0.53}                      # text-fit estimate when the kit has no font file
   flow_gap: 170
@@ -70,11 +75,12 @@ illustration:
   size: [1536, 1024]
   style: >-
     Clean 2D vector educational illustration on a pure white background. Thick navy outlines, vivid
-    royal-blue accents, pale-blue fills and soft blue gradients; rounded, friendly shapes. No photorealism,
-    3D, anime or heavy texture. One clear hero object, minimal props, no background rooms or clutter. Short,
-    large, correctly spelled English labels only where they help. Keep wide empty margins at the edges (the
-    video crops and overlays here). If a caption fits, put one short sentence in a pale-blue rounded box at
-    the bottom.
+    royal-blue accents, pale-blue fills and soft blue gradients; rounded, friendly shapes. One clear hero
+    object, minimal props. Short, large, correctly spelled English labels only where they help. Keep wide
+    empty margins at the edges (the video crops and overlays here). If a caption fits, put one short sentence
+    in a pale-blue rounded box at the bottom.
+  # what every image prompt asks the image tool to leave out
+  negative: [photorealism, 3D renders, anime, heavy texture, background rooms, clutter, long or misspelled text, watermarks]
   references: []            # style reference images in this kit, e.g. illustration/ref-01.png
   # flat backgrounds the image tool may use when it can't make a transparent one; the first that is far
   # from every brand colour is used, and removed automatically
@@ -105,3 +111,6 @@ motion:                     # for the motion-animation workflow
   easing: {enter: easeOutCubic, exit: easeInCubic}
   durations: {enter: 0.4, exit: 0.3, min_hold: 1.0}
   stagger: 0.08
+  # how each kind of element enters (cut, fade, fade_up, pop, draw, wipe, type, slide_in); the step sheet
+  # tells the Video Editor how to do each in Premiere
+  entrances: {default: fade, node: fade_up, edge: draw, arrow: draw, label: fade, line: type, layer: wipe, character: slide_in, illustration: pop}

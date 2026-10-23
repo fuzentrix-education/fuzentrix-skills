@@ -7,7 +7,7 @@ description: "Fuzentrix Coding Problem HTML: converts a given coding problem (st
 
 Converts a coding problem the user **gives** (pasted, or attached as `.docx`, `.md`, `.txt` or `.pdf`) into LMS-ready HTML: the Problem Statement, Solution, Test Cases, Test Case Explanation, Hints and Editorial it contains, in the form the LMS keeps. It writes nothing new: every word comes from the given problem, and all of it is used. The builder checks both.
 
-Every file is built by `scripts/fz.py` in this skill's folder: `python <skill folder>/scripts/fz.py <command>`. If it prints a numbered problem list, fix every problem and run the same command again.
+Every file is built by `scripts/fz.py` in this skill's folder: `python <skill folder>/scripts/fz.py <command>`. If it prints a numbered problem list, fix every problem and run the same command again. If it stops with a Python error instead, that is a bug in the builder: tell the user the command and the error's last line, carry on with what doesn't need that command, and don't change the content to get round it.
 
 ## Steps
 

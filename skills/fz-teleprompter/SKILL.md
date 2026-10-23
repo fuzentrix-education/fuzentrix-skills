@@ -7,7 +7,7 @@ description: "Fuzentrix Teleprompter: only the words the Instructor speaks, from
 
 Builds the Teleprompter Script: exactly the spoken words of the Final Master Script, formatted for reading on camera. Headings, slide content, stage directions and notes to the team are left out. The builder does this alone; nothing is reworded. Terms are defined in `references/glossary.md`.
 
-Every file is built by `scripts/fz.py` in this skill's folder: `python <skill folder>/scripts/fz.py <command>`.
+Every file is built by `scripts/fz.py` in this skill's folder: `python <skill folder>/scripts/fz.py <command>`. If it stops with a Python error, that is a bug in the builder: tell the user the command and the error's last line, carry on with what doesn't need that command, and don't change the content to get round it.
 
 ## Steps
 

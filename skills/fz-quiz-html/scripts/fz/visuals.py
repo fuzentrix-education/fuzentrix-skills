@@ -20,8 +20,10 @@ def house_style(brand) -> str:
     style = " ".join(str(brand.get("illustration.style") or "").split())
     people = " ".join(f"When {c['use_when']}, use {c['description']}." for c in brand.get("characters") or [])
     refs = [r for c in brand.get("characters") or [] for r in c.get("references") or []] + list(brand.get("illustration.references") or [])
+    avoid = brand.get("illustration.negative") or []
+    avoid = f"Avoid: {', '.join(avoid)}." if avoid else ""
     attach = f" Reference images in the Brand Kit ({', '.join(refs)}): attach them to the image tool when it accepts images." if refs else ""
-    return " ".join(x for x in (style, people) if x) + attach
+    return " ".join(x for x in (style, avoid, people) if x) + attach
 
 
 def image_size_wanted(brand) -> tuple:
@@ -154,20 +156,23 @@ def storyboard_prompts(bundle) -> str:
     return "\n".join(out)
 
 
-def build(bundle) -> dict:
+def build(bundle, without_images: bool = False) -> dict:
+    """Everything the Editor Kit needs. without_images: build what code can draw now, with placeholders where AI
+    elements go, and leave the stage unfinished until the images are made (for apps that can't generate images)."""
     from . import editor
 
     master = require_final(bundle, "Visuals")
     brand = brandkit.load(bundle)
-    problems, rows = [], []
+    problems, rows, missing = [], [], []
     for kind, events, required in (("image", image_events(master), True), ("storyboard", storyboard_events(master), False)):
         for seg, e in events:
             path = naming.asset_path(bundle, e, kind, "png")
             f = _found(path)
             if f is None:
                 if required:
-                    problems.append(f"{naming.relative(bundle, path)} is missing: generate it from `fz.py show <bundle> image-prompts` "
-                                    "and save it there (or remove the Visual Event in the Master Script).")
+                    (missing if without_images else problems).append(
+                        f"{naming.relative(bundle, path)} is missing: generate it from `fz.py show <bundle> image-prompts` "
+                        "and save it there (or remove the Visual Event in the Master Script).")
                 continue
             size = image_size(f.read_bytes())
             if size is None:
@@ -188,11 +193,12 @@ def build(bundle) -> dict:
         elif spec["type"] == "image":
             f = _found(png)
             if f is None:
-                problems.append(f"{naming.relative(bundle, png)} is missing: generate it from `fz.py show <bundle> image-prompts`.")
+                (missing if without_images else problems).append(
+                    f"{naming.relative(bundle, png)} is missing: generate it from `fz.py show <bundle> image-prompts`.")
             else:
                 rows.append(("diagram", seg, e, f, image_size(f.read_bytes()) or (0, 0)))
         else:
-            ok = diagrams.draw(spec, png.with_suffix(".svg"), png, brand)
+            ok = diagrams.draw(spec, png.with_suffix(".svg"), png, diagrams.theme_of(brand, e.get("layout")))
             drawn += 1
             png_missing += 0 if ok else 1
             rows.append(("diagram", seg, e, png if ok else png.with_suffix(".svg"), (diagrams.W, diagrams.H)))
@@ -200,17 +206,19 @@ def build(bundle) -> dict:
     for e in animations.to_specify(bundle, master):
         problems.append(f"{e['id']} needs an animation spec: start from `fz.py draft <bundle> animations all <file>`, "
                         "then `fz.py submit <bundle> animations <file>`.")
-    problems += animations.check_ai(bundle, master, brand)
+    problems += animations.check_ai(bundle, master, brand, allow_missing=without_images)
     if problems:
         raise Rejected(problems)
-    for seg, e, preview in animations.build_all(bundle, master, brand):
+    missing += [e["id"] for e, _ in animations.missing_ai(bundle, master)] if without_images else []
+    for seg, e, preview in animations.build_all(bundle, master, brand, placeholders=without_images):
         rows.append(("animation", seg, e, preview, image_size(preview.read_bytes()) if preview.suffix == ".png" else (diagrams.W, diagrams.H)))
     _gallery(bundle, master, rows)
-    bundle.manifest["stages"]["visuals"] = {"status": "built", "images": sum(1 for r in rows if r[0] == "image"),
+    bundle.manifest["stages"]["visuals"] = {"status": "partial" if missing else "built", "missing": len(missing),
+                                            "images": sum(1 for r in rows if r[0] == "image"),
                                             "diagrams": sum(1 for r in rows if r[0] == "diagram"),
                                             "storyboards": sum(1 for r in rows if r[0] == "storyboard"),
                                             "animations": sum(1 for r in rows if r[0] == "animation"),
-                                            "png_missing": png_missing}
+                                            "png_missing": png_missing, "brand": brandkit.signature(bundle)}
     bundle.log("visuals built")
     editor.build(bundle)
     return bundle.manifest["stages"]["visuals"]

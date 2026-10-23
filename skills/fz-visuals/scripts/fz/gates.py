@@ -98,8 +98,15 @@ def accepted_changes(bundle) -> dict:
     for c in changes:
         where = {"line": c["line"]} if c.get("line") else {"after_line": c["after_line"]}
         out[c["id"]] = dict(where, id=c["id"], fix_text=c["text"], source="instructor",
-                            problem="Script Change by the Instructor", suggestion=c.get("note") or "use these words")
+                            problem="Script Change by the Instructor", suggestion=c.get("note") or "use these words",
+                            **({"role": c["role"]} if c.get("role") else {}))
     return out
+
+
+def added_role(change: dict, roles: dict) -> str:
+    """The Line Role of a line a Finding or Script Change adds: as given, else shown only (slide_only) when it follows a
+    line that is only shown (a print after code), else spoken (a hook after a heading)."""
+    return change.get("role") or ("slide_only" if roles.get(change["after_line"]) == "slide_only" else "spoken")
 
 
 def record_gate2(bundle, data: dict) -> dict:

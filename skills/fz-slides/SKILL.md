@@ -7,7 +7,7 @@ description: "Fuzentrix Slides: editable PowerPoint slides on the Fuzentrix mast
 
 Builds the Video's slides: one editable slide per Segment, exactly as planned in the approved Master Script's Slide plan. The slides use the Fuzentrix master, colours and background art, and the bottom-right presenter area stays empty. They go into the Video's Editor Kit. Terms are defined in `references/glossary.md`.
 
-Every file is built by `scripts/fz.py` in this skill's folder: `python <skill folder>/scripts/fz.py <command>`.
+Every file is built by `scripts/fz.py` in this skill's folder: `python <skill folder>/scripts/fz.py <command>`. If it stops with a Python error instead, that is a bug in the builder: tell the user the command and the error's last line, carry on with what doesn't need that command, and don't change the content to get round it.
 
 ## Steps
 

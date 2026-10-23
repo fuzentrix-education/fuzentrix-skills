@@ -360,9 +360,11 @@ def build(bundle) -> dict:
     master = require_final(bundle, "Slides")
     brand = brandkit.load(bundle)
     template = brand.file(brand.get("slides.template"))
-    bg_rel = brand.get("slides.background")
-    background = brand.file(bg_rel)
-    bg_name = "fz_background" + (Path(bg_rel).suffix.lower() or ".png")
+    def background(layout):
+        """(media name, file) for a layout: its own background if the Brand Kit gives one, else the common one."""
+        own = (brand.get("slides.backgrounds") or {}).get(layout)
+        rel = own or brand.get("slides.background")
+        return "fz_background" + (f"_{layout}" if own else "") + (Path(rel).suffix.lower() or ".png"), brand.file(rel)
     course = master["video"]["id"].split("-")[0].upper()
 
     import io
@@ -376,12 +378,14 @@ def build(bundle) -> dict:
     if blank is None:
         raise Rejected("The Brand Kit's slide template has no Blank layout.")
 
-    slides, problems, media = [], [], {f"ppt/media/{bg_name}": background}
+    slides, problems, media = [], [], {}
     for seg in master["segments"]:
         sl = seg["slide"]
         s = Slide(sl["id"], W, H, brand)
         s.picture("Background", "rId2", 0, 0, 1, 1)
-        extras = {}
+        bg_name, bg = background(sl["layout"] if sl["layout"] in LAYOUTS else "bullets")
+        media[f"ppt/media/{bg_name}"] = bg
+        extras = {"background": bg_name}
         images = [e for e in seg.get("visual_events", []) if e.get("kind") == "image"]
         if sl["layout"] == "image" and images:
             extras["image_description"] = images[0]["description"]
@@ -403,7 +407,7 @@ def build(bundle) -> dict:
     for i, (s, extras) in enumerate(slides, 1):
         parts[f"ppt/slides/slide{i}.xml"] = s.xml().encode("utf-8")
         srels = (f'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="{layout_target}"/>'
-                 f'<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/{bg_name}"/>')
+                 f'<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/{extras["background"]}"/>')
         if extras.get("image_rid"):
             srels += f'<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/{extras["image_file"]}"/>'
         parts[f"ppt/slides/_rels/slide{i}.xml.rels"] = (
@@ -439,7 +443,7 @@ def build(bundle) -> dict:
         sl = seg["slide"]
         outline.append(f"- **{sl['id']}** · {sl['layout']} · {sl['title']} ({seg['id']})")
     (out.parent / "slides.md").write_text("\n".join(outline) + "\n", encoding="utf-8")
-    bundle.manifest["stages"]["slides"] = {"status": "built", "slides": len(slides)}
+    bundle.manifest["stages"]["slides"] = {"status": "built", "slides": len(slides), "brand": brandkit.signature(bundle)}
     bundle.log("slides built")
     editor.build(bundle)
     return {"slides": len(slides), "path": out}

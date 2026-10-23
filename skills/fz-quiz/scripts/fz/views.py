@@ -48,7 +48,7 @@ def review_markdown(bundle, review: dict) -> str:
 def reviewed_script_markdown(bundle) -> str:
     """The Instructor Script with every accepted Finding and Script Change applied: what the Instructor approved
     at Gate 1, and the words the Master Script must use."""
-    from .gates import accepted_changes, line_roles
+    from .gates import accepted_changes, added_role, line_roles
 
     gate = bundle.manifest["gates"]["1"]
     roles, changes = line_roles(bundle), accepted_changes(bundle)
@@ -69,7 +69,9 @@ def reviewed_script_markdown(bundle) -> str:
             words = f"~~{line['text']}~~ " + (c["fix_text"] or "(deleted)")
             tag = f" _({c['id']})_"
         out.append(f"- **{lid}** {words}{tag}" if role == "spoken" else f"- {lid} · _{role.replace('_', ' ')}_ · {words}{tag}")
-        out += [f"- **+ after {lid}** {a['fix_text']} _({a['id']})_" for a in added.get(lid, [])]
+        out += [f"- **+ after {lid}** {a['fix_text']} _({a['id']})_" if added_role(a, roles) == "spoken"
+                else f"- **+ after {lid}** · _{added_role(a, roles).replace('_', ' ')}_ · {a['fix_text']} _({a['id']})_"
+                for a in added.get(lid, [])]
     return "\n".join(out) + "\n"
 
 
@@ -86,6 +88,14 @@ def spoken_words(master: dict, say) -> int:
     return sum(len(say(s["text"]).split()) for seg in master["segments"] for s in seg.get("spoken", []))
 
 
+def _on_slide(slide: dict) -> list:
+    """Everything a slide shows, as written (not as the teleprompter says it)."""
+    shown = list(slide.get("bullets") or [])
+    shown += [f"{c.get('title', '')}: " + " · ".join(c.get("bullets") or []) for c in slide.get("columns") or []]
+    shown += [f"{key}: {slide[key]}" for key in ("code", "output") if slide.get(key)]
+    return shown
+
+
 def master_markdown(bundle, master: dict) -> str:
     say = as_spoken(bundle)
     words = spoken_words(master, say)
@@ -100,10 +110,7 @@ def master_markdown(bundle, master: dict) -> str:
     cell = lambda t: str(t).replace("|", "/").replace("\n", " ")
     for seg in master["segments"]:
         sl = seg["slide"]
-        shown = " · ".join(cell(say(b)) for b in sl.get("bullets") or [])
-        if sl.get("code"):
-            shown = (shown + " · " if shown else "") + "code: " + cell(sl["code"])
-        out.append(f"| {sl['id']} | {seg['id']} | {sl['layout']} | {cell(sl['title'])} | {shown} |")
+        out.append(f"| {sl['id']} | {seg['id']} | {sl['layout']} | {cell(sl['title'])} | {cell(' · '.join(_on_slide(sl)))} |")
     out.append("")
     if master.get("learning_objectives"):
         out += ["## Learning objectives", "", bullet_list(master["learning_objectives"]), ""]
@@ -115,8 +122,11 @@ def master_markdown(bundle, master: dict) -> str:
         out += ["", f"**On screen: {slide['id']} · {slide['layout']} · {slide['title']}**", ""]
         if slide.get("bullets"):
             out += [f"- {b}" for b in slide["bullets"]]
-        if slide.get("code"):
-            out += ["", "`" + slide["code"].replace("\n", "` / `") + "`"]
+        for col in slide.get("columns") or []:
+            out += [f"- {col.get('title', '')}: " + " · ".join(col.get("bullets") or [])]
+        for key in ("code", "output"):
+            if slide.get(key):
+                out += ["", f"{key.title()}: `" + str(slide[key]).replace("\n", "` / `") + "`"]
         for e in seg.get("visual_events", []):
             out += ["", f"**Visual Event {e['id']} · {e['kind']}" + (f" · {e['layout'].replace('_', ' ')}" if e.get("layout") else "")
                     + (f" · {e['duration_sec']} s" if e.get("duration_sec") else "") + "**", "",

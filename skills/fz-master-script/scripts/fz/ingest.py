@@ -53,7 +53,13 @@ def read_source(path) -> dict:
             raise Rejected(f"{path.name} is not a readable .docx file.")
         root = ElementTree.fromstring(xml)
         images = sum(1 for _ in root.iter(f"{W}drawing")) + sum(1 for _ in root.iter(f"{W}pict"))
-        lines = [para["text"] for block in root.find(f"{W}body") if block.tag == f"{W}p" for para in _docx_paragraph(block, tab="    ")]
+        lines = []
+        for block in root.find(f"{W}body"):
+            if block.tag == f"{W}p":
+                lines += [para["text"] for para in _docx_paragraph(block, tab="    ")]
+            elif block.tag == f"{W}tbl":  # a table's cells, row by row, each its own line
+                lines += [para["text"] for cell in block.iter(f"{W}tc") for p in cell.iter(f"{W}p")
+                          for para in _docx_paragraph(p, tab="    ")]
     elif suffix == ".pdf":
         try:
             from pypdf import PdfReader
@@ -65,9 +71,13 @@ def read_source(path) -> dict:
     return {"lines": [l.rstrip() for l in lines if l.strip()], "images": images}
 
 
+SEPARATOR = set("-–—_=*~•·>|#+ ")
+
+
 def _has_content(text: str) -> bool:
-    """Lines with no letters or digits (separators, a stray '>') carry nothing to say or show."""
-    return any(ch.isalnum() for ch in text)
+    """Separator lines ("-----", "=====", a stray '>') carry nothing to say or show. Lines of other symbols are kept:
+     shows how to write triple quotes."""
+    return bool(text.strip()) and not set(text) <= SEPARATOR
 
 
 def _clean(paragraph: dict) -> dict:

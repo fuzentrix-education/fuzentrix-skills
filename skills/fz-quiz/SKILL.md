@@ -7,7 +7,7 @@ description: "Fuzentrix Quiz: quiz questions for one or more Videos, as an Excel
 
 Builds an LMS Quiz from the Final Master Scripts of one or more Videos (a **Topic**), as an Excel workbook in the LMS Quiz Template. Code and bold text stay marked in the cells (`` `code` ``, ``` blocks, `**bold**`); Fuzentrix Quiz HTML (`fz-quiz-html`) turns them into the LMS's RICH_HTML before upload. Terms are defined in `references/glossary.md`.
 
-Every file is built by `scripts/fz.py` in this skill's folder: `python <skill folder>/scripts/fz.py <command>`. You write content as JSON; the builder checks it against every LMS import rule and either saves it or prints a numbered problem list. Fix every listed problem and run the same command again. Ids (Q03, S10) come from the builder's output; copy them exactly.
+Every file is built by `scripts/fz.py` in this skill's folder: `python <skill folder>/scripts/fz.py <command>`. You write content as JSON; the builder checks it against every LMS import rule and either saves it or prints a numbered problem list. Fix every listed problem and run the same command again. Ids (Q03, S10) come from the builder's output; copy them exactly. If it stops with a Python error instead, that is a bug in the builder: tell the user the command and the error's last line, carry on with what doesn't need that command, and don't change the content to get round it.
 
 To convert an existing quiz workbook to RICH_HTML, use Fuzentrix Quiz HTML instead.
 
@@ -23,5 +23,9 @@ To convert an existing quiz workbook to RICH_HTML, use Fuzentrix Quiz HTML inste
 ## Always
 
 - Questions test only what the Videos teach. Every question names the Segments it comes from.
-- **Self-check before every submit:** re-read your JSON against the checklist in `stages/quiz.md` and fix what you find.
-- Keep chat replies short: what was done, what needs the user's decision, and the files to download.
+- **One Video's questions per turn**, in the order the status gives. After submitting them, end the turn with one line of progress; the next turn starts from `fz.py status`.
+- **Draft once, fill once, submit once.** Fill the whole draft in one pass and write it with a single file write (for example a Python heredoc). Never paste the JSON into the chat.
+- **Read each source once** per chat: keep what `fz.py show` printed instead of running it again.
+- **On a rejection, fix only the listed problems** and submit again; keep everything that passed.
+- **Score before every submit** with the rubric in `stages/quiz.md`; every row must pass.
+- Keep chat replies under about 150 words: what was done, what needs the user's decision, and the files to download.

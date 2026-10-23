@@ -2,6 +2,8 @@
 one Master Script Chunk at a time. The AI never writes the whole master.json at once."""
 from __future__ import annotations
 
+import re
+
 from . import settings
 from .bundle import read_json, write_json
 from .problems import Rejected
@@ -166,6 +168,12 @@ def reopen(bundle) -> None:
         bundle.manifest["stages"].pop(stage, None)
 
 
+def _added_hint(lid: str) -> str:
+    """A line added at Gate 1 has no line id of its own: it is cited by the line it follows."""
+    return (" A line added by a Finding or Script Change is cited by the line it follows (its after_line)."
+            if re.match(r"^(F|SC)\d+$", str(lid)) else "")
+
+
 def _check_segment(seg: dict, planned: dict, lines: list, roles: dict, accepted: dict) -> list:
     sid = seg["id"]
     problems = []
@@ -217,7 +225,7 @@ def _check_segment(seg: dict, planned: dict, lines: list, roles: dict, accepted:
             problems.append(f"{sid}: slide layout must be one of {', '.join(SLIDE_LAYOUTS)}.")
         for lid in slide.get("source_lines") or []:
             if lid not in in_segment:
-                problems.append(f"{sid}: slide source line {lid} is not in this Segment.")
+                problems.append(f"{sid}: slide source line {lid} is not in this Segment." + _added_hint(lid))
         if not slide.get("source_lines"):
             problems.append(f"{sid}: slide 'source_lines' must list the lines its content comes from.")
 
@@ -238,7 +246,7 @@ def _check_segment(seg: dict, planned: dict, lines: list, roles: dict, accepted:
             problems.append(f"{label}: 'source_lines' must list the lines it shows.")
         for lid in e.get("source_lines") or []:
             if lid not in in_segment:
-                problems.append(f"{label}: source line {lid} is not in this Segment.")
+                problems.append(f"{label}: source line {lid} is not in this Segment." + _added_hint(lid))
     for key in ("points_to_check",):
         if key in seg and not isinstance(seg[key], list):
             problems.append(f"{sid}: '{key}' must be a list.")
@@ -324,14 +332,14 @@ def draft_chunk(bundle, chunk_id: str) -> dict:
     with every accepted Finding and Script Change applied (replacements, additions in place, deletions left out).
     The Host App fills in meaning_en, slide and visual_events. For a Chunk already written, those are kept and only
     the spoken lines are refreshed from the Reviewed Script."""
-    from .gates import accepted_changes, line_roles
+    from .gates import accepted_changes, added_role, line_roles
 
     chunks = {c["id"]: c for c in master_chunks(bundle)}
     if chunk_id not in chunks:
         raise Rejected(f"There is no Master Script Chunk {chunk_id} ({', '.join(chunks) or 'submit the plan first'}).")
     roles, plan, accepted = line_roles(bundle), plan_segments(bundle), accepted_changes(bundle)
     replace = {f["line"]: f["fix_text"] for f in accepted.values() if f.get("line") and "fix_text" in f}
-    additions = [f for f in accepted.values() if f.get("after_line") and f.get("fix_text")]
+    additions = [f for f in accepted.values() if f.get("after_line") and f.get("fix_text") and added_role(f, roles) == "spoken"]
     saved_path = bundle.path("02_master", "chunks", f"{chunk_id}.json")
     saved = {seg["id"]: seg for seg in read_json(saved_path)["segments"]} if saved_path.exists() else {}
     segments = []

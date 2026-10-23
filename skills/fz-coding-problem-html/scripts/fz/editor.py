@@ -6,7 +6,7 @@ import csv
 from pathlib import Path
 from xml.sax.saxutils import escape
 
-from . import naming, settings, views
+from . import brandkit, naming, settings, views
 from .bundle import read_json
 from .problems import Rejected
 from .teleprompter import clean
@@ -78,8 +78,6 @@ def _asset(bundle, e: dict) -> str:
 
 def _brand_folder(bundle, folder) -> None:
     """editor_kit/brand/: the logos, the fonts the kit may share, and the colours, for editing by hand."""
-    from . import brandkit
-
     try:
         brand = brandkit.load(bundle)
     except Rejected:
@@ -203,6 +201,6 @@ def build(bundle) -> dict:
             md.append("")
     views.write_pair(folder / "editor_guide", "\n".join(md) + "\n", title=f"Editor guide: {vid}")
     _brand_folder(bundle, folder)
-    bundle.manifest["stages"]["editor_kit"] = {"status": "built", "events": len(timeline)}
+    bundle.manifest["stages"]["editor_kit"] = {"status": "built", "events": len(timeline), "brand": brandkit.signature(bundle)}
     bundle.log("editor kit built")
     return {"events": len(timeline), "minutes": master["_duration"] / 60}

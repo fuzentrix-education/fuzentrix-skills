@@ -14,7 +14,7 @@ Fuzentrix Master Script (`fz-master-script`) builds the Master Script from the R
 
 All work lives in a **Video Bundle**: a folder, zipped for download and uploaded again to continue. Terms are defined in `references/glossary.md`.
 
-Every file is built by `scripts/fz.py` in this skill's folder: `python <skill folder>/scripts/fz.py <command>`. You write content as JSON; the builder checks it and either saves it or prints a numbered problem list. Fix every listed problem and run the same command again. Ids (L12, C02, F003, SC01) come from the builder's output; copy them exactly.
+Every file is built by `scripts/fz.py` in this skill's folder: `python <skill folder>/scripts/fz.py <command>`. You write content as JSON; the builder checks it and either saves it or prints a numbered problem list. Fix every listed problem and run the same command again. Ids (L12, C02, F003, SC01) come from the builder's output; copy them exactly. If it stops with a Python error instead, that is a bug in the builder: tell the user the command and the error's last line, carry on with what doesn't need that command, and don't change the content to get round it.
 
 ## Steps
 
@@ -33,6 +33,9 @@ Every file is built by `scripts/fz.py` in this skill's folder: `python <skill fo
 ## Always
 
 - The Instructor's words are reproduced exactly. Only Findings the Instructor accepts and their own Script Changes change them.
-- Long scripts are handled one Chunk per turn, in the order the status gives.
-- **Self-check before every submit:** re-read your JSON against the stage's checklist and fix what you find. Anything you cannot resolve goes in `points_to_check`, so the Instructor sees it.
-- Keep chat replies short: what was done, what needs the Instructor's decision, and the files to download.
+- **One Chunk per turn**, in the order the status gives. After submitting it, end the turn with one line of progress; the next turn starts from `fz.py status`.
+- **Draft once, fill once, submit once.** Fill the whole draft in one pass and write it with a single file write (for example a Python heredoc). Never paste the JSON into the chat.
+- **Read each source once** per chat: keep what `fz.py show` printed instead of running it again.
+- **On a rejection, fix only the listed problems** and submit again; keep everything that passed.
+- **Score before every submit** with the stage's rubric; every row must pass. Anything you cannot resolve goes in `points_to_check`, so the Instructor sees it.
+- Keep chat replies under about 150 words: what was done, what needs the Instructor's decision, and the files to download.
