@@ -10,6 +10,24 @@ import zlib
 USE_PIL = True  # tests switch this off to exercise the standard-library path
 
 
+def size(data: bytes):
+    """(width, height) of a PNG or JPEG, from its header (standard library only)."""
+    if data[:8] == b"\x89PNG\r\n\x1a\n":
+        return struct.unpack(">II", data[16:24])
+    if data[:2] == b"\xff\xd8":
+        i = 2
+        while i < len(data) - 9:
+            if data[i] != 0xFF:
+                i += 1
+                continue
+            marker = data[i + 1]
+            if marker in (0xC0, 0xC1, 0xC2):
+                h, w = struct.unpack(">HH", data[i + 5:i + 9])
+                return w, h
+            i += 2 + struct.unpack(">H", data[i + 2:i + 4])[0]
+    return None
+
+
 def _pil():
     if not USE_PIL:
         return None

@@ -19,62 +19,6 @@ def bullet_list(items) -> str:
     return "\n".join(f"- {i}" for i in items) if items else "- None"
 
 
-def review_markdown(bundle, review: dict) -> str:
-    lines_by_id = {l["id"]: l for l in bundle.lines()}
-    out = [f"# Script Review: {bundle.manifest['video']['id']}", "", config_note(bundle), "",
-           "## Points to check", "", bullet_list(review["points_to_check"]), "", "## Findings", ""]
-    if not review["findings"]:
-        out.append("No Findings.")
-    for f in review["findings"]:
-        where = f["line"] if f.get("line") else f"after {f['after_line']}"
-        out += [f"### {f['id']} · {f['severity']} · {f['category']} · {where}", ""]
-        if f.get("quote"):
-            out += [f"> {f['quote']}", ""]
-        out += [f"**Problem:** {f['problem']}", "", f"**Suggestion:** {f['suggestion']}", ""]
-        if "fix_text" in f:
-            out += [f"**Replacement line:** {f['fix_text'] or '(delete this line)'}", ""]
-    if review.get("code_checks"):
-        out += ["## Code checks", ""]
-        for c in review["code_checks"]:
-            out.append(f"- {', '.join(c.get('lines', []))}: **{c['status'].replace('_', ' ')}**" + (f": {c['note']}" if c.get("note") else ""))
-        out.append("")
-    not_spoken = [(lid, role) for lid, role in review["line_roles"].items() if role != "spoken"]
-    out += ["## Lines that will not be spoken", "",
-            "These lines stay off the teleprompter. Tell us if any of them should be spoken.", ""]
-    out += [f"- {lid} · {role.replace('_', ' ')}: {lines_by_id[lid]['text']}" for lid, role in not_spoken] or ["- None"]
-    return "\n".join(out) + "\n"
-
-
-def reviewed_script_markdown(bundle) -> str:
-    """The Instructor Script with every accepted Finding and Script Change applied: what the Instructor approved
-    at Gate 1, and the words the Master Script must use."""
-    from .gates import accepted_changes, added_role, line_roles
-
-    gate = bundle.manifest["gates"]["1"]
-    roles, changes = line_roles(bundle), accepted_changes(bundle)
-    replaced = {c["line"]: c for c in changes.values() if c.get("line") and "fix_text" in c}
-    added = {}
-    for c in changes.values():
-        if c.get("after_line") and c.get("fix_text"):
-            added.setdefault(c["after_line"], []).append(c)
-    out = [f"# Reviewed Script: {bundle.manifest['video']['id']}", "",
-           f"Approved by {gate['approver']} at Gate 1 ({gate['at'][:10]}). The **spoken** lines are said on camera exactly as "
-           "written here, and the Master Script uses these words. Changes are marked with the Finding (F…) or "
-           "Script Change (SC…) that made them.", "", config_note(bundle), ""]
-    for line in bundle.lines():
-        lid, role, c = line["id"], roles.get(line["id"], "unknown"), replaced.get(line["id"])
-        if c is None:
-            words, tag = line["text"], ""
-        else:
-            words = f"~~{line['text']}~~ " + (c["fix_text"] or "(deleted)")
-            tag = f" _({c['id']})_"
-        out.append(f"- **{lid}** {words}{tag}" if role == "spoken" else f"- {lid} · _{role.replace('_', ' ')}_ · {words}{tag}")
-        out += [f"- **+ after {lid}** {a['fix_text']} _({a['id']})_" if added_role(a, roles) == "spoken"
-                else f"- **+ after {lid}** · _{added_role(a, roles).replace('_', ' ')}_ · {a['fix_text']} _({a['id']})_"
-                for a in added.get(lid, [])]
-    return "\n".join(out) + "\n"
-
-
 def as_spoken(bundle):
     """How a script line is said: the same clean-up the Teleprompter Script uses (no bullets, ✔ or '>')."""
     from . import settings
@@ -82,61 +26,6 @@ def as_spoken(bundle):
 
     symbols = settings.get(bundle, "teleprompter_symbols")
     return lambda text: clean(text, symbols)
-
-
-def spoken_words(master: dict, say) -> int:
-    return sum(len(say(s["text"]).split()) for seg in master["segments"] for s in seg.get("spoken", []))
-
-
-def _on_slide(slide: dict) -> list:
-    """Everything a slide shows, as written (not as the teleprompter says it)."""
-    shown = list(slide.get("bullets") or [])
-    shown += [f"{c.get('title', '')}: " + " · ".join(c.get("bullets") or []) for c in slide.get("columns") or []]
-    shown += [f"{key}: {slide[key]}" for key in ("code", "output") if slide.get(key)]
-    return shown
-
-
-def master_markdown(bundle, master: dict) -> str:
-    say = as_spoken(bundle)
-    words = spoken_words(master, say)
-    minutes = words / 140
-    out = [f"# Master Script: {master['video']['title']}", "", config_note(bundle), "",
-           f"**Video:** {master['video']['id']}" + (f" · {master['video']['instructor']}" if master['video'].get('instructor') else "")
-           + f" · {words} spoken words (about {minutes:.0f} min)", "",
-           "## Points to check", "", bullet_list(master["points_to_check"]), "",
-           "## Agenda", "", bullet_list(master["agenda"]), "",
-           "## Slide plan", "", "What appears on each slide, in order. Slides are built from this once the Master Script is approved.", "",
-           "| Slide | Segment | Layout | Title | On screen |", "| --- | --- | --- | --- | --- |"]
-    cell = lambda t: str(t).replace("|", "/").replace("\n", " ")
-    for seg in master["segments"]:
-        sl = seg["slide"]
-        out.append(f"| {sl['id']} | {seg['id']} | {sl['layout']} | {cell(sl['title'])} | {cell(' · '.join(_on_slide(sl)))} |")
-    out.append("")
-    if master.get("learning_objectives"):
-        out += ["## Learning objectives", "", bullet_list(master["learning_objectives"]), ""]
-    for seg in master["segments"]:
-        out += [f"## {seg['id']} · {seg['section']} · {seg['title']}  ({seg['start']}–{seg['end']})", "",
-                f"**Meaning (English):** {seg['meaning_en']}", "", "**Narration (Instructor's words):**", ""]
-        out += [f"> {say(s['text'])}" + (f"  _(added: {s['from_finding']})_" if s.get("from_finding") else "") for s in seg.get("spoken", [])] or ["> (no spoken words)"]
-        slide = seg["slide"]
-        out += ["", f"**On screen: {slide['id']} · {slide['layout']} · {slide['title']}**", ""]
-        if slide.get("bullets"):
-            out += [f"- {b}" for b in slide["bullets"]]
-        for col in slide.get("columns") or []:
-            out += [f"- {col.get('title', '')}: " + " · ".join(col.get("bullets") or [])]
-        for key in ("code", "output"):
-            if slide.get(key):
-                out += ["", f"{key.title()}: `" + str(slide[key]).replace("\n", "` / `") + "`"]
-        for e in seg.get("visual_events", []):
-            out += ["", f"**Visual Event {e['id']} · {e['kind']}" + (f" · {e['layout'].replace('_', ' ')}" if e.get("layout") else "")
-                    + (f" · {e['duration_sec']} s" if e.get("duration_sec") else "") + "**", "",
-                    f"- Starts on: \"{e['trigger']}\"", f"- Shows: {e['description']}"]
-            if e.get("template"):
-                out.append(f"- Animation Template: {e['template']}")
-            if e.get("editor_note"):
-                out.append(f"- Editor note: {e['editor_note']}")
-        out.append("")
-    return "\n".join(out) + "\n"
 
 
 # --- Markdown → HTML for the subset these views use ------------------------------

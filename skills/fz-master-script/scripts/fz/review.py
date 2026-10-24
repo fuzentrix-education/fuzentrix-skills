@@ -6,10 +6,7 @@ from .bundle import read_json, write_json
 from .problems import Rejected
 from . import views
 
-LINE_ROLES = ("spoken", "heading", "speaker_label", "stage_direction", "note_to_team", "slide_only", "duplicate")
-CATEGORIES = ("technical", "flow", "guideline", "hygiene", "code")
-SEVERITIES = ("critical", "major", "minor")
-CODE_STATUS = ("run", "read_only")
+from .vocab import CATEGORIES, CODE_STATUS, LINE_ROLES, SEVERITIES  # noqa: F401  (others import them from here)
 
 
 def _norm(text: str) -> str:
@@ -139,7 +136,7 @@ def build(bundle) -> dict:
 
     review = {"line_roles": roles, "findings": findings, "code_checks": code_checks, "points_to_check": points}
     write_json(bundle.path("01_review", "review.json"), review)
-    md = views.review_markdown(bundle, review)
+    md = review_markdown(bundle, review)
     views.write_pair(bundle.path("01_review", "review_report"), md, title=f"Script Review: {bundle.manifest['video']['id']}")
     bundle.manifest["stages"]["review"] = {"status": "built", "findings": len(findings)}
     bundle.log("review built")
@@ -207,3 +204,31 @@ def draft_chunk(bundle, chunk: str) -> dict:
         raise Rejected(f"There is no Chunk {chunk} ({', '.join(chunk_ids(bundle))}).")
     roles = {l["id"]: "" for l in bundle.lines() if l["chunk"] == chunk}
     return {"chunk": chunk, "line_roles": roles, "findings": [], "code_checks": [], "points_to_check": []}
+
+
+# --- the readable page (moved from views) ---
+
+def review_markdown(bundle, review: dict) -> str:
+    lines_by_id = {l["id"]: l for l in bundle.lines()}
+    out = [f"# Script Review: {bundle.manifest['video']['id']}", "", views.config_note(bundle), "",
+           "## Points to check", "", views.bullet_list(review["points_to_check"]), "", "## Findings", ""]
+    if not review["findings"]:
+        out.append("No Findings.")
+    for f in review["findings"]:
+        where = f["line"] if f.get("line") else f"after {f['after_line']}"
+        out += [f"### {f['id']} · {f['severity']} · {f['category']} · {where}", ""]
+        if f.get("quote"):
+            out += [f"> {f['quote']}", ""]
+        out += [f"**Problem:** {f['problem']}", "", f"**Suggestion:** {f['suggestion']}", ""]
+        if "fix_text" in f:
+            out += [f"**Replacement line:** {f['fix_text'] or '(delete this line)'}", ""]
+    if review.get("code_checks"):
+        out += ["## Code checks", ""]
+        for c in review["code_checks"]:
+            out.append(f"- {', '.join(c.get('lines', []))}: **{c['status'].replace('_', ' ')}**" + (f": {c['note']}" if c.get("note") else ""))
+        out.append("")
+    not_spoken = [(lid, role) for lid, role in review["line_roles"].items() if role != "spoken"]
+    out += ["## Lines that will not be spoken", "",
+            "These lines stay off the teleprompter. Tell us if any of them should be spoken.", ""]
+    out += [f"- {lid} · {role.replace('_', ' ')}: {lines_by_id[lid]['text']}" for lid, role in not_spoken] or ["- None"]
+    return "\n".join(out) + "\n"

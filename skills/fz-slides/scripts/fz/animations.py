@@ -26,20 +26,9 @@ import re
 from . import SKILL_VERSION, brandkit, diagrams, naming, png, settings
 from .bundle import read_json, write_json
 from .problems import Rejected
+from .vocab import ENTRANCES
 
 SPEC_VERSION = "1.0"
-# How an element can enter: the Brand Kit picks one per kind of element (motion.entrances), the motion workflow
-# animates it, and the step sheet tells the Video Editor how to do it by hand in Premiere.
-ENTRANCES = {
-    "cut": "Cut in",
-    "fade": "Opacity 0 → 100 %",
-    "fade_up": "Opacity 0 → 100 % while rising 20 px",
-    "pop": "Scale 85 → 100 % with Opacity 0 → 100 %",
-    "draw": "Linear Wipe in the direction it points",
-    "wipe": "Linear Wipe left to right",
-    "type": "Linear Wipe left to right, one line at a time",
-    "slide_in": "Position in from the nearest frame edge",
-}
 FPS = 30
 DEFAULT_DURATION = 3
 MAX_STEPS = 8
@@ -91,7 +80,8 @@ def missing_ai(bundle, master: dict) -> list:
 
 
 def prompts(bundle) -> str:
-    from .visuals import house_style, require_final
+    from .brandkit import house_style
+    from .visuals import require_final
 
     master = require_final(bundle, "Animation elements")
     brand = brandkit.load(bundle)

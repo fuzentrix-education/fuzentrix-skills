@@ -10,14 +10,11 @@ from __future__ import annotations
 from .bundle import read_json, write_json
 from .problems import Rejected
 
-TYPES = ("SINGLE_SELECT", "MULTI_SELECT", "TRUE_FALSE")
-DIFFICULTIES = ("easy", "medium", "hard")
+from .vocab import CODE_QUESTIONS, DIFFICULTIES, EXPLANATIONS, QUESTION_TYPES as TYPES  # noqa: F401
 MAX_QUESTIONS = 100  # LMS import limit per file
 DEFAULT_DIFFICULTY_SHARE = {"easy": 0.4, "medium": 0.4, "hard": 0.2}
 DEFAULT_TYPE_SHARE = {"SINGLE_SELECT": 0.6, "MULTI_SELECT": 0.2, "TRUE_FALSE": 0.2}
 DEFAULT_POINTS = {"easy": 1, "medium": 1, "hard": 2}
-EXPLANATIONS = ("correct_only", "all_options")
-CODE_QUESTIONS = ("auto", "include", "none")
 
 
 def split(total: int, shares: dict) -> dict:

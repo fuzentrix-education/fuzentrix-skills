@@ -1,23 +1,33 @@
 """Where a Video Bundle is, and what to do next. This is how work resumes in a new chat."""
 from __future__ import annotations
 
-from . import brandkit, master, review
+from .problems import Lazy, MissingPart, part
+
+brandkit, master, review = Lazy("brandkit"), Lazy("master"), Lazy("review")
+
+
+def _shown(step, bundle) -> str:
+    """A skill's status line; a step whose module this skill doesn't ship is shown by its own skill."""
+    try:
+        return step(bundle)
+    except MissingPart:
+        return "Shown by that skill (this one doesn't include it)."
 
 
 def next_step(bundle) -> tuple:
     """Return (the first unfinished skill, one status line per skill)."""
     if bundle.manifest.get("kind") == "topic":
         return topic_next_step(bundle)
-    lines = [("fz-script-review", _review_step(bundle)), ("fz-master-script", _master_step(bundle))]
+    lines = [("fz-script-review", _shown(_review_step, bundle)), ("fz-master-script", _shown(_master_step, bundle))]
     final = bundle.manifest["stages"].get("master", {}).get("status") == "final"
     for skill, step, branded in (("fz-slides", _slides_step, True), ("fz-visuals", _visuals_step, True),
                                  ("fz-teleprompter", _teleprompter_step, False)):
         if not final:
             lines.append((skill, "Waiting for the Final Master Script (fz-master-script, Gate 2)."))
         elif branded and not bundle.manifest.get("brand"):
-            lines.append((skill, brandkit.ASK))
+            lines.append((skill, _shown(lambda b: brandkit.ASK, bundle)))
         else:
-            lines.append((skill, step(bundle)))
+            lines.append((skill, _shown(step, bundle)))
     text = "\n".join(f"{skill} · {step}" for skill, step in lines)
     if all(step.startswith("Done") for _, step in lines):
         text += "\nAll done: pack the Video Bundle (`fz.py pack <bundle> <zip>`) and the Editor Kit (`fz.py pack-editor <bundle> <zip>`) for download."
@@ -27,6 +37,8 @@ def next_step(bundle) -> tuple:
 
 def _review_step(bundle) -> str:
     stages, gates = bundle.manifest["stages"], bundle.manifest["gates"]
+    if "1" in gates and stages.get("review", {}).get("status") == "built":
+        return f"Done: Reviewed Script (Gate 1 by {gates['1']['approver']})."
     if stages.get("review", {}).get("status") != "built":
         chunks = review.chunk_ids(bundle)
         done = review.reviewed_chunks(bundle)
@@ -46,6 +58,8 @@ def _review_step(bundle) -> str:
 
 def _master_step(bundle) -> str:
     stages, gates = bundle.manifest["stages"], bundle.manifest["gates"]
+    if "2" in gates and stages.get("master", {}).get("status") == "final":
+        return f"Done: Final Master Script (Gate 2 by {gates['2']['approver']})."
     if "1" not in gates:
         return "Waiting for the Reviewed Script (fz-script-review, Gate 1)."
     chunks = master.master_chunks(bundle)
@@ -82,17 +96,16 @@ def _slides_step(bundle) -> str:
 
 def _visuals_step(bundle) -> str:
     from .bundle import read_json
-    from .visuals import diagrams_to_draw, missing_images
 
     stale = brandkit.stale_note(bundle, "visuals", "fz.py build <bundle> visuals")
     if stale:
         return stale
     if bundle.manifest["stages"].get("visuals", {}).get("status") == "built":
         return "Done: images, diagrams and storyboards are in editor_kit/ (see visuals.html)."
-    from .animations import missing_ai, to_specify
-
+    visuals, animations = part("visuals"), part("animations")
     m = read_json(bundle.path("02_master", "master.json"))
-    images, todo, anims, ai = missing_images(bundle, m), diagrams_to_draw(bundle, m), to_specify(bundle, m), missing_ai(bundle, m)
+    images, todo = visuals.missing_images(bundle, m), visuals.diagrams_to_draw(bundle, m)
+    anims, ai = animations.to_specify(bundle, m), animations.missing_ai(bundle, m)
     if images or todo or anims or ai:
         parts = []
         if images:
@@ -115,13 +128,13 @@ def _teleprompter_step(bundle) -> str:
 
 def topic_next_step(bundle) -> tuple:
     """A Topic has two independent deliverables; report the next step for each."""
-    quiz_step, sheet_step = _quiz_step(bundle), _cheatsheet_step(bundle)
+    quiz_step, sheet_step = _shown(_quiz_step, bundle), _shown(_cheatsheet_step, bundle)
     stage = "Quiz" if not quiz_step.startswith("Done") else "Cheatsheet"
     return (stage, f"Quiz · {quiz_step}\nCheatsheet · {sheet_step}")
 
 
 def _quiz_step(bundle) -> str:
-    from . import quiz
+    quiz = part("quiz")
 
     stages = bundle.manifest["stages"]
     if "quiz_request" not in stages:
@@ -144,7 +157,7 @@ def _quiz_step(bundle) -> str:
 
 
 def _cheatsheet_step(bundle) -> str:
-    from .cheatsheet import missing_images
+    missing_images = part("cheatsheet").missing_images
 
     if not bundle.manifest.get("brand"):
         return brandkit.ASK

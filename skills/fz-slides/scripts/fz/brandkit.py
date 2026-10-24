@@ -162,6 +162,22 @@ def publish_main(argv=None) -> int:
 
 # --- checks ----------------------------------------------------------------------------------
 
+def house_style(brand) -> str:
+    """The Brand Kit's illustration style plus its characters, as one prompt preface."""
+    style = " ".join(str(brand.get("illustration.style") or "").split())
+    people = " ".join(f"When {c['use_when']}, use {c['description']}." for c in brand.get("characters") or [])
+    refs = [r for c in brand.get("characters") or [] for r in c.get("references") or []] + list(brand.get("illustration.references") or [])
+    avoid = brand.get("illustration.negative") or []
+    avoid = f"Avoid: {', '.join(avoid)}." if avoid else ""
+    attach = f" Reference images in the Brand Kit ({', '.join(refs)}): attach them to the image tool when it accepts images." if refs else ""
+    return " ".join(x for x in (style, avoid, people) if x) + attach
+
+
+def image_size_wanted(brand) -> tuple:
+    w, h = brand.get("illustration.size") or (1536, 1024)
+    return int(w), int(h)
+
+
 def check_data(data: dict, read) -> list:
     """Problems with a Brand Kit's brand.yaml and the files it names. read(rel) → bytes or None."""
     if not isinstance(data, dict):
@@ -200,7 +216,7 @@ def check_data(data: dict, read) -> list:
     keys = (full.get("illustration") or {}).get("key_colors") or []
     if not keys or not all(HEX.match(str(k)) for k in keys):
         problems.append("brand.yaml: illustration.key_colors must list hex colours like \"#00FF00\".")
-    from .animations import ENTRANCES
+    from .vocab import ENTRANCES
 
     for role, how in ((full.get("motion") or {}).get("entrances") or {}).items():
         if how not in ENTRANCES:
@@ -235,7 +251,7 @@ def check_data(data: dict, read) -> list:
         for ref in c.get("references") or []:
             need(f"characters.{c.get('id')}.references", "characters", ref)
     slides = full["slides"]
-    from .slides import LAYOUTS
+    from .vocab import SLIDE_LAYOUTS as LAYOUTS
 
     backgrounds = {}
     if need("slides.background", "slides.background", slides.get("background")):
@@ -261,7 +277,7 @@ def _check_template(template: bytes, backgrounds: dict) -> list:
     import io
     import zipfile
 
-    from .visuals import image_size
+    from .png import size as image_size
 
     try:
         with zipfile.ZipFile(io.BytesIO(template)) as z:
@@ -362,7 +378,7 @@ def override(bundle, path: str, value, note: str = "") -> dict:
     if path.startswith("colors.") and not HEX.match(str(value)):
         raise Rejected(f"{path} must be a hex colour like \"#0A59C8\".")
     if path.startswith("motion.entrances."):
-        from .animations import ENTRANCES
+        from .vocab import ENTRANCES
 
         if value not in ENTRANCES:
             raise Rejected(f"{path} must be one of {', '.join(ENTRANCES)}.")

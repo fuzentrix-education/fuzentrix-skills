@@ -62,7 +62,7 @@ def record_gate1(bundle, data: dict) -> dict:
     write_json(bundle.path("01_review", "gate1.json"), record)
     bundle.manifest["gates"]["1"] = {"approver": record["approver"], "at": record["at"]}
     bundle.log(f"gate 1 by {record['approver']}")
-    views.write_pair(bundle.path("01_review", "reviewed_script"), views.reviewed_script_markdown(bundle),
+    views.write_pair(bundle.path("01_review", "reviewed_script"), reviewed_script_markdown(bundle),
                      title=f"Reviewed Script: {bundle.manifest['video']['id']}")
     from . import master
     if bundle.manifest["stages"].get("master", {}).get("status") in ("built", "final") and master.stale_chunks(bundle):
@@ -121,22 +121,31 @@ def record_gate2(bundle, data: dict) -> dict:
     return record
 
 
-def record_gate3(bundle, data: dict) -> dict:
-    """Gate 3: the Content Lead approves a Topic deliverable (the Quiz or the Cheatsheet)."""
-    deliverable = data.get("deliverable", "quiz")
-    if deliverable not in ("quiz", "cheatsheet"):
-        raise Rejected("'deliverable' must be 'quiz' or 'cheatsheet'.")
-    if bundle.manifest["stages"].get(deliverable, {}).get("status") != "built":
-        raise Rejected(f"Build the {deliverable} first (`fz.py build <bundle> {deliverable}`); Gate 3 approves it.")
-    if not str(data.get("approver", "")).strip():
-        raise Rejected("'approver' must name the Content Lead.")
-    if deliverable == "cheatsheet":
-        from .cheatsheet import image_file, missing_images
-        missing = missing_images(bundle)
-        if missing:
-            raise Rejected([f"{image_file(bundle, b['id']).name} is not generated yet; the Content Lead approves the cheatsheet with its images "
-                            "(`fz.py show <bundle> cheatsheet-image-prompts`)." for b in missing])
-    record = {"approver": data["approver"], "at": now(), "notes": data.get("notes", "")}
-    bundle.manifest["gates"].setdefault("3", {})[deliverable] = record
-    bundle.log(f"gate 3 ({deliverable}) by {record['approver']}")
-    return record
+# --- the readable page (moved from views) ---
+
+def reviewed_script_markdown(bundle) -> str:
+    """The Instructor Script with every accepted Finding and Script Change applied: what the Instructor approved
+    at Gate 1, and the words the Master Script must use."""
+    gate = bundle.manifest["gates"]["1"]
+    roles, changes = line_roles(bundle), accepted_changes(bundle)
+    replaced = {c["line"]: c for c in changes.values() if c.get("line") and "fix_text" in c}
+    added = {}
+    for c in changes.values():
+        if c.get("after_line") and c.get("fix_text"):
+            added.setdefault(c["after_line"], []).append(c)
+    out = [f"# Reviewed Script: {bundle.manifest['video']['id']}", "",
+           f"Approved by {gate['approver']} at Gate 1 ({gate['at'][:10]}). The **spoken** lines are said on camera exactly as "
+           "written here, and the Master Script uses these words. Changes are marked with the Finding (F…) or "
+           "Script Change (SC…) that made them.", "", views.config_note(bundle), ""]
+    for line in bundle.lines():
+        lid, role, c = line["id"], roles.get(line["id"], "unknown"), replaced.get(line["id"])
+        if c is None:
+            words, tag = line["text"], ""
+        else:
+            words = f"~~{line['text']}~~ " + (c["fix_text"] or "(deleted)")
+            tag = f" _({c['id']})_"
+        out.append(f"- **{lid}** {words}{tag}" if role == "spoken" else f"- {lid} · _{role.replace('_', ' ')}_ · {words}{tag}")
+        out += [f"- **+ after {lid}** {a['fix_text']} _({a['id']})_" if added_role(a, roles) == "spoken"
+                else f"- **+ after {lid}** · _{added_role(a, roles).replace('_', ' ')}_ · {a['fix_text']} _({a['id']})_"
+                for a in added.get(lid, [])]
+    return "\n".join(out) + "\n"

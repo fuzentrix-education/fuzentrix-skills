@@ -7,7 +7,7 @@ from pathlib import Path
 
 from . import SKILL_VERSION
 from .bundle import Bundle, now, read_json, unpack, write_json
-from .problems import Rejected
+from .problems import Rejected, part
 
 
 def create(root, topic_id: str, title: str, videos: list) -> Bundle:
@@ -127,3 +127,24 @@ def describe_sources(bundle, video_id: str) -> str:
                 out.append(f"On screen ({e['kind']}): {e.get('description', '')}")
         out.append("")
     return "\n".join(out)
+
+
+def record_gate3(bundle, data: dict) -> dict:
+    """Gate 3: the Content Lead approves a Topic deliverable (the Quiz or the Cheatsheet)."""
+    deliverable = data.get("deliverable", "quiz")
+    if deliverable not in ("quiz", "cheatsheet"):
+        raise Rejected("'deliverable' must be 'quiz' or 'cheatsheet'.")
+    if bundle.manifest["stages"].get(deliverable, {}).get("status") != "built":
+        raise Rejected(f"Build the {deliverable} first (`fz.py build <bundle> {deliverable}`); Gate 3 approves it.")
+    if not str(data.get("approver", "")).strip():
+        raise Rejected("'approver' must name the Content Lead.")
+    if deliverable == "cheatsheet":
+        cheatsheet = part("cheatsheet")
+        missing = cheatsheet.missing_images(bundle)
+        if missing:
+            raise Rejected([f"{cheatsheet.image_file(bundle, b['id']).name} is not generated yet; the Content Lead approves the cheatsheet with its images "
+                            "(`fz.py show <bundle> cheatsheet-image-prompts`)." for b in missing])
+    record = {"approver": data["approver"], "at": now(), "notes": data.get("notes", "")}
+    bundle.manifest["gates"].setdefault("3", {})[deliverable] = record
+    bundle.log(f"gate 3 ({deliverable}) by {record['approver']}")
+    return record

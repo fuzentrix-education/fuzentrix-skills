@@ -7,12 +7,17 @@ from pathlib import Path
 
 import json
 
-from . import animations, brandkit, lmspolicy, quizhtml, cheatsheet, configpack, editor, gates, lmshtml, master, naming, quiz, review, schemas, settings, slides, status, teleprompter, topic, visuals
+from . import configpack, kits, lmspolicy, naming, schemas, settings, status
 from .bundle import Bundle, pack, read_json, unpack, write_json
 from .chunks import assign, make_chunks
 from .ingest import number_lines, read_script, tags
-from . import kits
-from .problems import Rejected, format_problems
+from .problems import Lazy, Rejected, format_problems
+
+# Each skill's own steps, loaded when a command uses them: a skill ships only the modules its steps need, and a
+# command from another skill says so.
+animations, brandkit, cheatsheet, editor, gates, lmshtml, master, quiz, quizhtml, review, slides, teleprompter, topic, visuals = (
+    Lazy(name) for name in ("animations", "brandkit", "cheatsheet", "editor", "gates", "lmshtml", "master", "quiz", "quizhtml",
+                            "review", "slides", "teleprompter", "topic", "visuals"))
 
 
 def format_line(line: dict) -> str:
@@ -221,7 +226,7 @@ def cmd_gate(args) -> None:
         print(f"Gate 1 recorded for {record['approver']}: {accepted} of {len(record['decisions'])} Finding(s) accepted{carried}{changes}. "
               "Wrote 01_review/reviewed_script.md and .html.")
     elif args.n == "3":
-        record = gates.record_gate3(bundle, _load_json_file(args.file) if args.file else {})
+        record = topic.record_gate3(bundle, _load_json_file(args.file) if args.file else {})
         print(f"Gate 3 recorded for {record['approver']}.")
     elif args.n == "2":
         record = gates.record_gate2(bundle, _load_json_file(args.file) if args.file else {})
@@ -410,7 +415,7 @@ def cmd_pack(args) -> None:
 
 def cmd_unpack(args) -> None:
     bundle = unpack(args.zip, args.bundle)
-    what = "Topic Bundle" if topic.is_topic(bundle) else "Video Bundle"
+    what = "Topic Bundle" if bundle.manifest.get("kind") == "topic" else "Video Bundle"
     print(f"Unpacked {what} {(bundle.manifest.get('video') or bundle.manifest.get('topic'))['id']} into {bundle.root}.")
     print(status.next_step(bundle)[1])
 
@@ -428,7 +433,7 @@ def cmd_topic(args) -> None:
 
 def cmd_status(args) -> None:
     bundle = Bundle(args.bundle)
-    if topic.is_topic(bundle):
+    if bundle.manifest.get("kind") == "topic":
         t = bundle.manifest["topic"]
         n = len(bundle.manifest["videos"])
         print(f"Topic {t['id']} · {n} Video{'s' if n != 1 else ''} · " + ("DRAFT defaults" if bundle.manifest["config"].get("draft") else f"Configuration Pack {bundle.manifest['config'].get('version')}"))

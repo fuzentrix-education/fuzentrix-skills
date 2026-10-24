@@ -6,51 +6,18 @@ This checks every required file is there and large enough, and writes a gallery 
 from __future__ import annotations
 
 import html
-import struct
 
 from . import brandkit, diagrams, naming, views
+from .brandkit import house_style, image_size_wanted  # noqa: F401  (the image prompts use them)
+from .png import size as image_size
 from .bundle import read_json, write_json
 from .problems import Rejected
 
 MIN_WIDTH = 1024
 
 
-def house_style(brand) -> str:
-    """The Brand Kit's illustration style plus its characters, as one prompt preface."""
-    style = " ".join(str(brand.get("illustration.style") or "").split())
-    people = " ".join(f"When {c['use_when']}, use {c['description']}." for c in brand.get("characters") or [])
-    refs = [r for c in brand.get("characters") or [] for r in c.get("references") or []] + list(brand.get("illustration.references") or [])
-    avoid = brand.get("illustration.negative") or []
-    avoid = f"Avoid: {', '.join(avoid)}." if avoid else ""
-    attach = f" Reference images in the Brand Kit ({', '.join(refs)}): attach them to the image tool when it accepts images." if refs else ""
-    return " ".join(x for x in (style, avoid, people) if x) + attach
-
-
-def image_size_wanted(brand) -> tuple:
-    w, h = brand.get("illustration.size") or (1536, 1024)
-    return int(w), int(h)
-
-
 def image_events(master: dict) -> list:
     return [(seg, e) for seg in master["segments"] for e in seg.get("visual_events", []) if e.get("kind") == "image"]
-
-
-def image_size(data: bytes):
-    """(width, height) of a PNG or JPEG, from its header (standard library only)."""
-    if data[:8] == b"\x89PNG\r\n\x1a\n":
-        return struct.unpack(">II", data[16:24])
-    if data[:2] == b"\xff\xd8":
-        i = 2
-        while i < len(data) - 9:
-            if data[i] != 0xFF:
-                i += 1
-                continue
-            marker = data[i + 1]
-            if marker in (0xC0, 0xC1, 0xC2):
-                h, w = struct.unpack(">HH", data[i + 5:i + 9])
-                return w, h
-            i += 2 + struct.unpack(">H", data[i + 2:i + 4])[0]
-    return None
 
 
 def require_final(bundle, what: str) -> dict:

@@ -161,7 +161,7 @@ def missing_images(bundle) -> list:
 
 
 def prompts(bundle) -> str:
-    from .visuals import house_style, image_size_wanted
+    from .brandkit import house_style, image_size_wanted
 
     path = bundle.path("cheatsheet", "cheatsheet.json")
     if not path.exists():

@@ -3,9 +3,8 @@ from __future__ import annotations
 
 import json
 
-from .master import EVENT_KINDS, EVENT_LAYOUTS, SLIDE_LAYOUTS, VIDEO_SECTIONS
-from .quiz import CODE_QUESTIONS, EXPLANATIONS
-from .review import CATEGORIES, LINE_ROLES, SEVERITIES
+from .vocab import (CATEGORIES, CODE_QUESTIONS, EVENT_KINDS, EVENT_LAYOUTS, EXPLANATIONS, LINE_ROLES, SEVERITIES,
+                    SLIDE_LAYOUTS, VIDEO_SECTIONS)
 
 SCHEMAS = {
     "review": (

@@ -8,7 +8,7 @@ from . import settings
 from .bundle import read_json, write_json
 from .problems import Rejected
 
-VIDEO_SECTIONS = ("hook", "intro", "recap", "agenda", "explanation", "summary", "teaser", "outro")
+from .vocab import EVENT_KINDS, EVENT_LAYOUTS, SLIDE_LAYOUTS, VIDEO_SECTIONS  # noqa: F401
 
 
 def _num(line_id: str) -> int:
@@ -110,9 +110,6 @@ def _require_reviewed_script(bundle) -> None:
 
 # --- Master Script Chunks -------------------------------------------------------
 
-SLIDE_LAYOUTS = ("title", "agenda", "bullets", "definition", "code", "comparison", "diagram", "quote", "image", "summary")
-EVENT_KINDS = ("animation", "image", "diagram", "code", "broll", "direction")  # direction: camera, music or sound cue
-EVENT_LAYOUTS = ("fullscreen_cutaway", "beside_instructor", "overlay", "slide_bg")
 
 
 def _norm(text: str) -> str:
@@ -319,7 +316,7 @@ def build(bundle) -> dict:
         "points_to_check": points,
     }
     write_json(bundle.path("02_master", "master.json"), master)
-    views.write_pair(bundle.path("02_master", "master_script"), views.master_markdown(bundle, master),
+    views.write_pair(bundle.path("02_master", "master_script"), master_markdown(bundle, master),
                      title=f"Master Script: {plan['title']}")
     bundle.manifest["stages"]["master"] = {"status": "built"}
     bundle.manifest["gates"].pop("2", None)
@@ -363,3 +360,62 @@ def draft_chunk(bundle, chunk_id: str) -> dict:
             "points_to_check": [],
         })
     return {"chunk": chunk_id, "segments": segments}
+
+
+# --- the readable page (moved from views) ---
+
+def spoken_words(master: dict, say) -> int:
+    return sum(len(say(s["text"]).split()) for seg in master["segments"] for s in seg.get("spoken", []))
+
+
+def _on_slide(slide: dict) -> list:
+    """Everything a slide shows, as written (not as the teleprompter says it)."""
+    shown = list(slide.get("bullets") or [])
+    shown += [f"{c.get('title', '')}: " + " · ".join(c.get("bullets") or []) for c in slide.get("columns") or []]
+    shown += [f"{key}: {slide[key]}" for key in ("code", "output") if slide.get(key)]
+    return shown
+
+
+def master_markdown(bundle, master: dict) -> str:
+    from . import views
+
+    say = views.as_spoken(bundle)
+    words = spoken_words(master, say)
+    minutes = words / 140
+    out = [f"# Master Script: {master['video']['title']}", "", views.config_note(bundle), "",
+           f"**Video:** {master['video']['id']}" + (f" · {master['video']['instructor']}" if master['video'].get('instructor') else "")
+           + f" · {words} spoken words (about {minutes:.0f} min)", "",
+           "## Points to check", "", views.bullet_list(master["points_to_check"]), "",
+           "## Agenda", "", views.bullet_list(master["agenda"]), "",
+           "## Slide plan", "", "What appears on each slide, in order. Slides are built from this once the Master Script is approved.", "",
+           "| Slide | Segment | Layout | Title | On screen |", "| --- | --- | --- | --- | --- |"]
+    cell = lambda t: str(t).replace("|", "/").replace("\n", " ")
+    for seg in master["segments"]:
+        sl = seg["slide"]
+        out.append(f"| {sl['id']} | {seg['id']} | {sl['layout']} | {cell(sl['title'])} | {cell(' · '.join(_on_slide(sl)))} |")
+    out.append("")
+    if master.get("learning_objectives"):
+        out += ["## Learning objectives", "", views.bullet_list(master["learning_objectives"]), ""]
+    for seg in master["segments"]:
+        out += [f"## {seg['id']} · {seg['section']} · {seg['title']}  ({seg['start']}–{seg['end']})", "",
+                f"**Meaning (English):** {seg['meaning_en']}", "", "**Narration (Instructor's words):**", ""]
+        out += [f"> {say(s['text'])}" + (f"  _(added: {s['from_finding']})_" if s.get("from_finding") else "") for s in seg.get("spoken", [])] or ["> (no spoken words)"]
+        slide = seg["slide"]
+        out += ["", f"**On screen: {slide['id']} · {slide['layout']} · {slide['title']}**", ""]
+        if slide.get("bullets"):
+            out += [f"- {b}" for b in slide["bullets"]]
+        for col in slide.get("columns") or []:
+            out += [f"- {col.get('title', '')}: " + " · ".join(col.get("bullets") or [])]
+        for key in ("code", "output"):
+            if slide.get(key):
+                out += ["", f"{key.title()}: `" + str(slide[key]).replace("\n", "` / `") + "`"]
+        for e in seg.get("visual_events", []):
+            out += ["", f"**Visual Event {e['id']} · {e['kind']}" + (f" · {e['layout'].replace('_', ' ')}" if e.get("layout") else "")
+                    + (f" · {e['duration_sec']} s" if e.get("duration_sec") else "") + "**", "",
+                    f"- Starts on: \"{e['trigger']}\"", f"- Shows: {e['description']}"]
+            if e.get("template"):
+                out.append(f"- Animation Template: {e['template']}")
+            if e.get("editor_note"):
+                out.append(f"- Editor note: {e['editor_note']}")
+        out.append("")
+    return "\n".join(out) + "\n"
