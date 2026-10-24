@@ -232,7 +232,11 @@ def check_data(data: dict, read) -> list:
         return read if _get(data, path) is not None else default_read
 
     def need(where, path, rel):
+        """True if the file is here to check. A file the kit leaves to the Default Brand Kit may be missing from this
+        skill (only fz-slides carries the default slide template); the default kit is checked when it is published."""
         if rel and reader(path)(rel) is None:
+            if _get(data, path) is None:
+                return False
             problems.append(f"brand.yaml: {where} names {rel}, which is not in the kit.")
             return False
         return bool(rel)
